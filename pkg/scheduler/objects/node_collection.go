@@ -111,7 +111,10 @@ func (nc *baseNodeCollection) AddNode(node *Node) error {
 		nodeScore: nc.scoreNode(node),
 	}
 	nc.nodes[node.NodeID] = &nref
-	nc.queue.PushBack(nref)
+	if nref.node.NodeID != "yunikorn-0"{
+		nc.queue.PushBack(nref);
+	}
+	// nc.queue.PushBack(nref);	
 	// log.Log(log.Core).Info("add node :" + nref.node.NodeID)
 	nc.sortedNodes.ReplaceOrInsert(nref)
 	return nil
@@ -190,6 +193,9 @@ func (nc *baseNodeCollection) GetCurNode() *Node {
 	front := nc.queue.Front()
 	curNodeNref := front.Value.(nodeRef)
 	log.Log(log.SchedContext).Info("cur node   " + curNodeNref.node.NodeID);
+	for key, val := range curNodeNref.node.GetCapacity().Resources{
+		log.Log(log.Core).Info(fmt.Sprintf("key: %v; val: %v", key, val));
+	}
 	nc.queue.Remove(front)
 	nc.queue.PushBack(curNodeNref)
 	return curNodeNref.node

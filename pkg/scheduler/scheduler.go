@@ -85,7 +85,7 @@ func (s *Scheduler) internalSchedule() {
 			// timeout, run scheduler anyway
 		}
 
-		if s.clusterContext.schedule() {
+		if s.clusterContext.customSchedule() {
 			s.registerActivity()
 		}
 	}

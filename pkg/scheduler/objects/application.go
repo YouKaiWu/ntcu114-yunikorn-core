@@ -935,7 +935,111 @@ func (sa *Application) canReplace(request *AllocationAsk) bool {
 }
 
 // tryAllocate will perform a regular allocation of a pending request, includes placeholders.
-func (sa *Application) tryAllocate(headRoom *resources.Resource, allowPreemption bool, preemptionDelay time.Duration, preemptAttemptsRemaining *int, nodeIterator func() NodeIterator, fullNodeIterator func() NodeIterator, getNodeFn func(string) *Node, selectedNode *Node) *Allocation {
+func (sa *Application) tryCustomAllocate(headRoom *resources.Resource, allowPreemption bool, preemptionDelay time.Duration, preemptAttemptsRemaining *int, nodeIterator func() NodeIterator, fullNodeIterator func() NodeIterator, getNodeFn func(string) *Node, selectedNode string) *Allocation {
+	sa.Lock()
+	defer sa.Unlock()
+	if sa.sortedRequests == nil {
+		return nil
+	}
+	// calculate the users' headroom, includes group check which requires the applicationID
+	userHeadroom := ugm.GetUserManager().Headroom(sa.queuePath, sa.ApplicationID, sa.user)
+	// get all the requests from the app sorted in order
+	log.Log(log.Core).Info(fmt.Sprintf("app get User:%v", sa.user.User))
+	log.Log(log.Core).Info("app get all needed resources of all requests")
+	res := resources.NewResource()
+	for _, request := range sa.sortedRequests {
+		curRes := request.GetAllocatedResource();
+		for key, val := range curRes.Resources{
+			log.Log(log.Core).Info(fmt.Sprintf("key: %v; val: %v", key, val))
+		}
+		res.AddTo(curRes);
+	}
+
+	for _, request := range sa.sortedRequests {
+		if request.GetPendingAskRepeat() == 0 {
+			continue
+		}
+		// check if there is a replacement possible
+		if sa.canReplace(request) {
+			continue
+		}
+		// check if this fits in the users' headroom first, if that fits check the queues' headroom
+		// NOTE: preemption most likely will not help in this case. The chance that preemption helps is mall
+		// as the preempted allocation must be for the same user in a different queue in the hierarchy...
+		if !userHeadroom.FitInMaxUndef(request.GetAllocatedResource()) {
+			request.LogAllocationFailure(NotEnoughUserQuota, true) // error message MUST be constant!
+			request.setUserQuotaCheckFailed(userHeadroom)
+			continue
+		}
+		request.setUserQuotaCheckPassed()
+		request.SetSchedulingAttempted(true)
+
+		// resource must fit in headroom otherwise skip the request (unless preemption could help)
+		if !headRoom.FitInMaxUndef(request.GetAllocatedResource()) {
+			// attempt preemption
+			if allowPreemption && *preemptAttemptsRemaining > 0 {
+				*preemptAttemptsRemaining--
+				fullIterator := fullNodeIterator()
+				if fullIterator != nil {
+					if alloc, ok := sa.tryPreemption(headRoom, preemptionDelay, request, fullIterator, false); ok {
+						// preemption occurred, and possibly reservation
+						return alloc
+					}
+				}
+			}
+			request.LogAllocationFailure(NotEnoughQueueQuota, true) // error message MUST be constant!
+			request.setHeadroomCheckFailed(headRoom, sa.queuePath)
+			continue
+		}
+		request.setHeadroomCheckPassed(sa.queuePath)
+	
+		requiredNode := selectedNode	
+		// does request have any constraint to run on specific node?
+		if requiredNode != "" {
+			// the iterator might not have the node we need as it could be reserved, or we have not added it yet
+			node := getNodeFn(requiredNode)
+			if node == nil {
+				getRateLimitedAppLog().Info("required node is not found (could be transient)",
+					zap.String("application ID", sa.ApplicationID),
+					zap.String("allocationKey", request.GetAllocationKey()),
+					zap.String("required node", requiredNode))
+				return nil
+			}
+			// Are there any non daemon set reservations on specific required node?
+			// Cancel those reservations to run daemon set pods
+			reservations := node.GetReservations()
+			if len(reservations) > 0 {
+				if !sa.cancelReservations(reservations) {
+					return nil
+				}
+			}
+			alloc := sa.tryNode(node, request)
+			if alloc != nil {
+				log.Log(log.Config).Info("alloc is not nil XXX");
+				// check if the node was reserved and we allocated after a release
+				if _, ok := sa.reservations[reservationKey(node, nil, request)]; ok {
+					log.Log(log.SchedApplication).Debug("allocation on required node after release",
+						zap.String("appID", sa.ApplicationID),
+						zap.String("nodeID", requiredNode),
+						zap.String("allocationKey", request.GetAllocationKey()))
+					alloc.SetResult(AllocatedReserved)
+					return alloc
+				}
+				log.Log(log.SchedApplication).Debug("allocation on required node is completed",
+					zap.String("nodeID", node.NodeID),
+					zap.String("allocationKey", request.GetAllocationKey()),
+					zap.Stringer("AllocationResult", alloc.GetResult()))
+				return alloc
+			}
+			return newReservedAllocation(node.NodeID, request)
+		}
+	}
+	// no requests fit, skip to next app
+	return nil
+}
+
+// tryAllocate will perform a regular allocation of a pending request, includes placeholders.
+func (sa *Application) tryAllocate(headRoom *resources.Resource, allowPreemption bool, preemptionDelay time.Duration, preemptAttemptsRemaining *int, nodeIterator func() NodeIterator, fullNodeIterator func() NodeIterator, getNodeFn func(string) *Node) *Allocation {
 	sa.Lock()
 	defer sa.Unlock()
 	if sa.sortedRequests == nil {
@@ -982,101 +1086,65 @@ func (sa *Application) tryAllocate(headRoom *resources.Resource, allowPreemption
 		}
 		request.setHeadroomCheckPassed(sa.queuePath)
 
-		// requiredNode := request.GetRequiredNode()
-		// // does request have any constraint to run on specific node?
-		// if requiredNode != "" {
-		// 	// the iterator might not have the node we need as it could be reserved, or we have not added it yet
-		// 	node := getNodeFn(requiredNode)
-		// 	if node == nil {
-		// 		getRateLimitedAppLog().Info("required node is not found (could be transient)",
-		// 			zap.String("application ID", sa.ApplicationID),
-		// 			zap.String("allocationKey", request.GetAllocationKey()),
-		// 			zap.String("required node", requiredNode))
-		// 		return nil
-		// 	}
-		// 	// Are there any non daemon set reservations on specific required node?
-		// 	// Cancel those reservations to run daemon set pods
-		// 	reservations := node.GetReservations()
-		// 	if len(reservations) > 0 {
-		// 		if !sa.cancelReservations(reservations) {
-		// 			return nil
-		// 		}
-		// 	}
-		// 	alloc := sa.tryNode(node, request)
-		// 	if alloc != nil {
-		// 		// check if the node was reserved and we allocated after a release
-		// 		if _, ok := sa.reservations[reservationKey(node, nil, request)]; ok {
-		// 			log.Log(log.SchedApplication).Debug("allocation on required node after release",
-		// 				zap.String("appID", sa.ApplicationID),
-		// 				zap.String("nodeID", requiredNode),
-		// 				zap.String("allocationKey", request.GetAllocationKey()))
-		// 			alloc.SetResult(AllocatedReserved)
-		// 			return alloc
-		// 		}
-		// 		log.Log(log.SchedApplication).Debug("allocation on required node is completed",
-		// 			zap.String("nodeID", node.NodeID),
-		// 			zap.String("allocationKey", request.GetAllocationKey()),
-		// 			zap.Stringer("AllocationResult", alloc.GetResult()))
-		// 		return alloc
-		// 	}
-		// 	return newReservedAllocation(node.NodeID, request)
-		// }
-		
-		node := selectedNode
-		if node == nil {
-			getRateLimitedAppLog().Info("required node is not found (could be transient)",
-				zap.String("application ID", sa.ApplicationID),
-				zap.String("allocationKey", request.GetAllocationKey()),
-				zap.String("required node", selectedNode.NodeID))
-			return nil
-		}
-		// Are there any non daemon set reservations on specific required node?
-		// Cancel those reservations to run daemon set pods
-		reservations := node.GetReservations()
-		if len(reservations) > 0 {
-			if !sa.cancelReservations(reservations) {
+		requiredNode := request.GetRequiredNode()
+		// does request have any constraint to run on specific node?
+		if requiredNode != "" {
+			// the iterator might not have the node we need as it could be reserved, or we have not added it yet
+			node := getNodeFn(requiredNode)
+			if node == nil {
+				getRateLimitedAppLog().Info("required node is not found (could be transient)",
+					zap.String("application ID", sa.ApplicationID),
+					zap.String("allocationKey", request.GetAllocationKey()),
+					zap.String("required node", requiredNode))
 				return nil
 			}
-		}
-		alloc := sa.tryNode(node, request)
-		if alloc != nil {
-			// check if the node was reserved and we allocated after a release
-			if _, ok := sa.reservations[reservationKey(node, nil, request)]; ok {
-				log.Log(log.SchedApplication).Debug("allocation on required node after release",
-					zap.String("appID", sa.ApplicationID),
-					zap.String("nodeID", selectedNode.NodeID),
-					zap.String("allocationKey", request.GetAllocationKey()))
-				alloc.SetResult(AllocatedReserved)
+			// Are there any non daemon set reservations on specific required node?
+			// Cancel those reservations to run daemon set pods
+			reservations := node.GetReservations()
+			if len(reservations) > 0 {
+				if !sa.cancelReservations(reservations) {
+					return nil
+				}
+			}
+			alloc := sa.tryNode(node, request)
+			if alloc != nil {
+				// check if the node was reserved and we allocated after a release
+				if _, ok := sa.reservations[reservationKey(node, nil, request)]; ok {
+					log.Log(log.SchedApplication).Debug("allocation on required node after release",
+						zap.String("appID", sa.ApplicationID),
+						zap.String("nodeID", requiredNode),
+						zap.String("allocationKey", request.GetAllocationKey()))
+					alloc.SetResult(AllocatedReserved)
+					return alloc
+				}
+				log.Log(log.SchedApplication).Debug("allocation on required node is completed",
+					zap.String("nodeID", node.NodeID),
+					zap.String("allocationKey", request.GetAllocationKey()),
+					zap.Stringer("AllocationResult", alloc.GetResult()))
 				return alloc
 			}
-			log.Log(log.SchedApplication).Debug("allocation on required node is completed",
-				zap.String("nodeID", node.NodeID),
-				zap.String("allocationKey", request.GetAllocationKey()),
-				zap.Stringer("AllocationResult", alloc.GetResult()))
-			return alloc
+			return newReservedAllocation(node.NodeID, request)
 		}
-		return newReservedAllocation(node.NodeID, request)
-	
 
-		// iterator := nodeIterator()
-		// if iterator != nil {
-		// 	if alloc := sa.tryNodes(request, iterator); alloc != nil {
-		// 		// have a candidate return it
-		// 		return alloc
-		// 	}
+		iterator := nodeIterator()
+		if iterator != nil {
+			if alloc := sa.tryNodes(request, iterator); alloc != nil {
+				// have a candidate return it
+				return alloc
+			}
 
-		// 	// no nodes qualify, attempt preemption
-		// 	if allowPreemption && *preemptAttemptsRemaining > 0 {
-		// 		*preemptAttemptsRemaining--
-		// 		fullIterator := fullNodeIterator()
-		// 		if fullIterator != nil {
-		// 			if alloc, ok := sa.tryPreemption(headRoom, preemptionDelay, request, fullIterator, true); ok {
-		// 				// preemption occurred, and possibly reservation
-		// 				return alloc
-		// 			}
-		// 		}
-		// 	}
-		// }
+			// no nodes qualify, attempt preemption
+			if allowPreemption && *preemptAttemptsRemaining > 0 {
+				*preemptAttemptsRemaining--
+				fullIterator := fullNodeIterator()
+				if fullIterator != nil {
+					if alloc, ok := sa.tryPreemption(headRoom, preemptionDelay, request, fullIterator, true); ok {
+						// preemption occurred, and possibly reservation
+						return alloc
+					}
+				}
+			}
+		}
 	}
 	// no requests fit, skip to next app
 	return nil

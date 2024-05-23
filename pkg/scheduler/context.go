@@ -113,6 +113,43 @@ func (cc *ClusterContext) setEventHandler(rmHandler handler.EventHandler) {
 	cc.rmEventHandler = rmHandler
 }
 
+func (cc *ClusterContext) customSchedule() bool {
+	// schedule each partition defined in the cluster
+	activity := false
+	for _, psc := range cc.GetPartitionMapClone() {
+		// if there are no resources in the partition just skip
+		if psc.root.GetMaxResource() == nil {
+			continue
+		}
+		// a stopped partition does not allocate
+		if psc.isStopped() {
+			continue
+		}
+		// try reservations first
+		schedulingStart := time.Now()
+		alloc := psc.tryReservedAllocate()
+		if alloc == nil {
+			// placeholder replacement second
+			alloc = psc.tryPlaceholderAllocate()
+			// nothing reserved that can be allocated try normal allocate
+			if alloc == nil {
+				alloc = psc.tryCustomAllocate()
+			}
+		}
+		if alloc != nil {
+			metrics.GetSchedulerMetrics().ObserveSchedulingLatency(schedulingStart)
+			if alloc.GetResult() == objects.Replaced {
+				// communicate the removal to the RM
+				cc.notifyRMAllocationReleased(psc.RmID, alloc.GetReleasesClone(), si.TerminationType_PLACEHOLDER_REPLACED, "replacing allocationID: "+alloc.GetAllocationID())
+			} else {
+				cc.notifyRMNewAllocation(psc.RmID, alloc)
+			}
+			activity = true
+		}
+	}
+	return activity
+}
+
 // schedule is the main scheduling routine.
 // Process each partition in the scheduler, walk over each queue and app to check if anything can be scheduled.
 // This can be forked into a go routine per partition if needed to increase parallel allocations.
@@ -131,16 +168,15 @@ func (cc *ClusterContext) schedule() bool {
 		}
 		// try reservations first
 		schedulingStart := time.Now()
-		// alloc := psc.tryReservedAllocate()
-		// if alloc == nil {
-		// 	// placeholder replacement second
-		// 	alloc = psc.tryPlaceholderAllocate()
-		// 	// nothing reserved that can be allocated try normal allocate
-		// 	if alloc == nil {
-		// 		alloc = psc.tryAllocate()
-		// 	}
-		// }
-		alloc := psc.tryAllocate()
+		alloc := psc.tryReservedAllocate()
+		if alloc == nil {
+			// placeholder replacement second
+			alloc = psc.tryPlaceholderAllocate()
+			// nothing reserved that can be allocated try normal allocate
+			if alloc == nil {
+				alloc = psc.tryAllocate()
+			}
+		}
 		if alloc != nil {
 			metrics.GetSchedulerMetrics().ObserveSchedulingLatency(schedulingStart)
 			if alloc.GetResult() == objects.Replaced {
