@@ -33,6 +33,7 @@ import (
 	"github.com/apache/yunikorn-core/pkg/common/configs"
 	"github.com/apache/yunikorn-core/pkg/common/resources"
 	"github.com/apache/yunikorn-core/pkg/common/security"
+	"github.com/apache/yunikorn-core/pkg/custom"
 	"github.com/apache/yunikorn-core/pkg/locking"
 	"github.com/apache/yunikorn-core/pkg/log"
 	"github.com/apache/yunikorn-core/pkg/metrics"
@@ -107,7 +108,7 @@ func (pc *PartitionContext) initialPartitionFromConfig(conf configs.PartitionCon
 	if len(conf.Queues) == 0 || conf.Queues[0].Name != configs.RootQueue {
 		return fmt.Errorf("partition cannot be created without root queue")
 	}
-
+	custom.GetFairnessManager().ParseUsersInPartitionConfig(conf)
 	// Setup the queue structure: root first it should be the only queue at this level
 	// Add the rest of the queue structure recursively
 	queueConf := conf.Queues[0]
@@ -295,12 +296,12 @@ func (pc *PartitionContext) AddApplication(app *objects.Application) error {
 	if pc.isDraining() || pc.isStopped() {
 		return fmt.Errorf("partition %s is stopped cannot add a new application %s", pc.Name, app.ApplicationID)
 	}
-
 	// Check if the app exists
 	appID := app.ApplicationID
 	if pc.getApplication(appID) != nil {
 		return fmt.Errorf("adding application %s to partition %s, but application already existed", appID, pc.Name)
 	}
+	custom.GetFairnessManager().ParseUserInApp(app)
 
 	// Put app under the queue
 	pm := pc.getPlacementManager()
@@ -549,7 +550,7 @@ func (pc *PartitionContext) AddNode(node *objects.Node, existingAllocations []*o
 	if err := pc.addNodeToList(node); err != nil {
 		return err
 	}
-
+	custom.GetLoadBalanceManager().GetNodes().AddNode(node);
 	// Add allocations that exist on the node when added
 	if len(existingAllocations) > 0 {
 		for current, alloc := range existingAllocations {
@@ -816,20 +817,6 @@ func (pc *PartitionContext) calculateOutstandingRequests() []*objects.Allocation
 	return outstanding
 }
 
-func (pc *PartitionContext) tryCustomAllocate() *objects.Allocation {
-	if !resources.StrictlyGreaterThanZero(pc.root.GetPendingResource()) {
-		// nothing to do just return
-		return nil
-	}
-	// try allocating from the root down
-	alloc := pc.root.TryCustomAllocate(pc.GetNodeIterator, pc.GetFullNodeIterator, pc.GetNode, pc.isPreemptionEnabled(), pc.GetCurNode())
-	if alloc != nil {
-		log.Log(log.Core).Info(fmt.Sprintf("round robin:alloc.nodeID: %s",alloc.GetNodeID()));
-		return pc.allocate(alloc)
-	}
-	return nil
-}
-
 // Try regular allocation for the partition
 // Lock free call this all locks are taken when needed in called functions
 func (pc *PartitionContext) tryAllocate() *objects.Allocation {
@@ -840,7 +827,6 @@ func (pc *PartitionContext) tryAllocate() *objects.Allocation {
 	// try allocating from the root down
 	alloc := pc.root.TryAllocate(pc.GetNodeIterator, pc.GetFullNodeIterator, pc.GetNode, pc.isPreemptionEnabled())
 	if alloc != nil {
-		log.Log(log.Core).Info(fmt.Sprintf("round robin:alloc.nodeID: %s",alloc.GetNodeID()));
 		return pc.allocate(alloc)
 	}
 	return nil
@@ -1003,11 +989,6 @@ func (pc *PartitionContext) unReserve(app *objects.Application, node *objects.No
 		zap.String("allocationKey", ask.GetAllocationKey()),
 		zap.String("node", node.NodeID),
 		zap.Int("reservationsRemoved", num))
-}
-
-// getNode according to round robin 
-func (pc *PartitionContext) GetCurNode() string {
-	return pc.nodes.GetCurNode().NodeID;
 }
 
 // Create an ordered node iterator based on the node sort policy set for this partition.

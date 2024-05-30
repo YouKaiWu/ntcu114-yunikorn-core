@@ -944,17 +944,17 @@ func (sa *Application) tryCustomAllocate(headRoom *resources.Resource, allowPree
 	// calculate the users' headroom, includes group check which requires the applicationID
 	userHeadroom := ugm.GetUserManager().Headroom(sa.queuePath, sa.ApplicationID, sa.user)
 	// get all the requests from the app sorted in order
-	log.Log(log.Core).Info(fmt.Sprintf("app get User:%v", sa.user.User))
-	log.Log(log.Core).Info("app get all needed resources of all requests")
+	log.Log(log.Custom).Info(fmt.Sprintf("app get User:%v", sa.user.User))
+	log.Log(log.Custom).Info("app get all needed resources of all requests")
 	res := resources.NewResource()
 	for _, request := range sa.sortedRequests {
 		curRes := request.GetAllocatedResource();
-		for key, val := range curRes.Resources{
-			log.Log(log.Core).Info(fmt.Sprintf("key: %v; val: %v", key, val))
-		}
 		res.AddTo(curRes);
 	}
 
+	for key, val := range res.Resources{
+		log.Log(log.Custom).Info(fmt.Sprintf("key: %v; val: %v", key, val))
+	}
 	for _, request := range sa.sortedRequests {
 		if request.GetPendingAskRepeat() == 0 {
 			continue
@@ -1015,7 +1015,6 @@ func (sa *Application) tryCustomAllocate(headRoom *resources.Resource, allowPree
 			}
 			alloc := sa.tryNode(node, request)
 			if alloc != nil {
-				log.Log(log.Config).Info("alloc is not nil XXX");
 				// check if the node was reserved and we allocated after a release
 				if _, ok := sa.reservations[reservationKey(node, nil, request)]; ok {
 					log.Log(log.SchedApplication).Debug("allocation on required node after release",

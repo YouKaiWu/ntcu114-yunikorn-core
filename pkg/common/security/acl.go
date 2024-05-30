@@ -154,3 +154,7 @@ func (a ACL) CheckAccess(userObj UserGroup) bool {
 	}
 	return false
 }
+
+func (a ACL) GetUsers() map[string]bool {
+	return a.users
+}

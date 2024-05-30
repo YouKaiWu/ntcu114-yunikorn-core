@@ -29,6 +29,7 @@ import (
 	"github.com/apache/yunikorn-core/pkg/common"
 	"github.com/apache/yunikorn-core/pkg/common/configs"
 	"github.com/apache/yunikorn-core/pkg/common/resources"
+	"github.com/apache/yunikorn-core/pkg/custom"
 	"github.com/apache/yunikorn-core/pkg/handler"
 	"github.com/apache/yunikorn-core/pkg/locking"
 	"github.com/apache/yunikorn-core/pkg/log"
@@ -127,13 +128,15 @@ func (cc *ClusterContext) customSchedule() bool {
 		}
 		// try reservations first
 		schedulingStart := time.Now()
+		scheduled, appId := custom.GetFairnessManager().NextAppToSchedule();
+		log.Log(log.Custom).Info(fmt.Sprintf("scheduled: %v, GetApp: %v", scheduled, appId))
 		alloc := psc.tryReservedAllocate()
 		if alloc == nil {
 			// placeholder replacement second
 			alloc = psc.tryPlaceholderAllocate()
 			// nothing reserved that can be allocated try normal allocate
 			if alloc == nil {
-				alloc = psc.tryCustomAllocate()
+				alloc = psc.tryAllocate()
 			}
 		}
 		if alloc != nil {
