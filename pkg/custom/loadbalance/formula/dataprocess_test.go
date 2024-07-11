@@ -5,7 +5,28 @@ import (
 	"gotest.tools/v3/assert"
 )
 
-
+// func TestDominanentLoad(t *testing.T){
+// 	resourceType := [2]string{
+// 		"CPU", "Memory",
+// 	};
+// 	// app_resource := map[string]int{
+// 	// 	"CPU" : 10,
+// 	// 	"Memory" : 20,
+// 	// };
+// 	nodeAvailResource := map[string]float64{
+// 		"CPU":    8,
+// 		"Memory": 30,
+// 	};
+// 	nodeCapResource := map[string]float64{
+// 		"CPU":    10,
+// 		"Memory": 50,
+// 	};
+// 	dominanentLoad := GetDominantLoad(nodeAvailResource, nodeCapResource, resourceType[:]);
+// 	expected := 0.3
+// 	if dominanentLoad != expected {
+// 		t.Errorf("Got: %v, Expected: %v", dominanentLoad, expected)
+// 	}
+// }
 func TestGetMean (t *testing.T) {
 	objects := [...]float64{-1.0, 0.0, 1.0}
 	mean := GetMean(objects[:])

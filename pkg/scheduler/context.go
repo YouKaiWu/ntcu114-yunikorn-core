@@ -128,27 +128,26 @@ func (cc *ClusterContext) customSchedule() bool {
 		}
 		// try reservations first
 		schedulingStart := time.Now()
-		scheduled, appId := custom.GetFairnessManager().NextAppToSchedule();
-		log.Log(log.Custom).Info(fmt.Sprintf("scheduled: %v, GetApp: %v", scheduled, appId))
-		alloc := psc.tryReservedAllocate()
-		if alloc == nil {
-			// placeholder replacement second
-			alloc = psc.tryPlaceholderAllocate()
-			// nothing reserved that can be allocated try normal allocate
-			if alloc == nil {
-				alloc = psc.tryAllocate()
+		_, appID := custom.GetFairnessManager().NextAppToSchedule()
+		if app := psc.getApplication(appID); app != nil{
+			var alloc *objects.Allocation
+			if app.GetAllRequests() != nil{
+				selectedNode := custom.GetLoadBalanceManager().SelectNode(app)
+				alloc = app.TrySelectedNode(selectedNode, psc.GetNode)
 			}
-		}
-		if alloc != nil {
-			metrics.GetSchedulerMetrics().ObserveSchedulingLatency(schedulingStart)
-			if alloc.GetResult() == objects.Replaced {
-				// communicate the removal to the RM
-				cc.notifyRMAllocationReleased(psc.RmID, alloc.GetReleasesClone(), si.TerminationType_PLACEHOLDER_REPLACED, "replacing allocationID: "+alloc.GetAllocationID())
-			} else {
-				cc.notifyRMNewAllocation(psc.RmID, alloc)
+			if alloc != nil {
+				log.Log(log.Custom).Info(fmt.Sprintf("updatedApp: %v", appID))
+				custom.GetFairnessManager().UpdateScheduledApp(app)
+				metrics.GetSchedulerMetrics().ObserveSchedulingLatency(schedulingStart)
+				if alloc.GetResult() == objects.Replaced {
+					// communicate the removal to the RM
+					cc.notifyRMAllocationReleased(psc.RmID, alloc.GetReleasesClone(), si.TerminationType_PLACEHOLDER_REPLACED, "replacing allocationID: "+alloc.GetAllocationID())
+				} else {
+					cc.notifyRMNewAllocation(psc.RmID, alloc)
+				}
+				activity = true
 			}
-			activity = true
-		}
+		} 
 	}
 	return activity
 }

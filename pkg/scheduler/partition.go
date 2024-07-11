@@ -302,7 +302,6 @@ func (pc *PartitionContext) AddApplication(app *objects.Application) error {
 		return fmt.Errorf("adding application %s to partition %s, but application already existed", appID, pc.Name)
 	}
 	custom.GetFairnessManager().ParseUserInApp(app)
-
 	// Put app under the queue
 	pm := pc.getPlacementManager()
 	err := pm.PlaceApplication(app)
@@ -550,6 +549,7 @@ func (pc *PartitionContext) AddNode(node *objects.Node, existingAllocations []*o
 	if err := pc.addNodeToList(node); err != nil {
 		return err
 	}
+	custom.GetFairnessManager().AddNode(node.NodeID, node.GetCapacity())
 	custom.GetLoadBalanceManager().GetNodes().AddNode(node);
 	// Add allocations that exist on the node when added
 	if len(existingAllocations) > 0 {
@@ -665,6 +665,7 @@ func (pc *PartitionContext) removeNode(nodeID string) ([]*objects.Allocation, []
 	if node == nil {
 		return nil, nil
 	}
+	custom.GetFairnessManager().RemoveNode(node.NodeID)
 
 	// unreserve all the apps that were reserved on the node.
 	// The node is not reachable anymore unless you have the pointer.
@@ -1248,6 +1249,7 @@ func (pc *PartitionContext) removeAllocation(release *si.AllocationRelease) ([]*
 	appID := release.ApplicationID
 	allocationID := release.GetAllocationID()
 	app := pc.getApplication(appID)
+	custom.GetFairnessManager().AddCompletedApp(appID, app.GetUser().User)
 	// no app nothing to do everything should already be clean
 	if app == nil {
 		log.Log(log.SchedPartition).Info("Application not found while releasing allocation",
@@ -1460,6 +1462,7 @@ func (pc *PartitionContext) moveTerminatedApp(appID string) {
 			zap.String("appID", appID))
 		return
 	}
+	custom.GetFairnessManager().AddCompletedApp(appID, app.GetUser().User)
 	app.UnSetQueue()
 	// new ID as completedApplications map key, use negative value to get a divider
 	newID := appID + strconv.FormatInt(-(time.Now()).Unix(), 10)

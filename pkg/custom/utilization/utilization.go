@@ -36,16 +36,16 @@ func ParseNode(n *objects.Node) (nodeID string, avialble *resources.Resource, ca
 	return
 }
 
-func ParseApp(app *objects.Application) (appID string, username string, resourceQuantity *resources.Resource) {
+func ParseApp(app *objects.Application) (appID string, username string, totalResource *resources.Resource) {
 	appID = app.ApplicationID
 	username = app.GetUser().User
-	resourceQuantity = resources.NewResource()
-	totalResource := resources.NewResource()
+	totalResource = resources.NewResource()
 	if app.GetAllRequests() == nil {
 		log.Log(log.Custom).Info("request is nil")
+	}else{
+		log.Log(log.Custom).Info("request exist")
 	}
 	for _, request := range app.GetAllRequests(){
-		log.Log(log.Custom).Info("request exist")
 		curResource := request.GetAllocatedResource()
 		totalResource.AddTo(curResource)
 	}

@@ -934,8 +934,8 @@ func (sa *Application) canReplace(request *AllocationAsk) bool {
 	return false
 }
 
-// tryAllocate will perform a regular allocation of a pending request, includes placeholders.
-func (sa *Application) tryCustomAllocate(headRoom *resources.Resource, allowPreemption bool, preemptionDelay time.Duration, preemptAttemptsRemaining *int, nodeIterator func() NodeIterator, fullNodeIterator func() NodeIterator, getNodeFn func(string) *Node, selectedNode string) *Allocation {
+// TrySelectedNode will make all request to selected node
+func (sa *Application) TrySelectedNode(selectedNode string, getNodeFn func(string) *Node) *Allocation {
 	sa.Lock()
 	defer sa.Unlock()
 	if sa.sortedRequests == nil {
@@ -944,17 +944,6 @@ func (sa *Application) tryCustomAllocate(headRoom *resources.Resource, allowPree
 	// calculate the users' headroom, includes group check which requires the applicationID
 	userHeadroom := ugm.GetUserManager().Headroom(sa.queuePath, sa.ApplicationID, sa.user)
 	// get all the requests from the app sorted in order
-	log.Log(log.Custom).Info(fmt.Sprintf("app get User:%v", sa.user.User))
-	log.Log(log.Custom).Info("app get all needed resources of all requests")
-	res := resources.NewResource()
-	for _, request := range sa.sortedRequests {
-		curRes := request.GetAllocatedResource();
-		res.AddTo(curRes);
-	}
-
-	for key, val := range res.Resources{
-		log.Log(log.Custom).Info(fmt.Sprintf("key: %v; val: %v", key, val))
-	}
 	for _, request := range sa.sortedRequests {
 		if request.GetPendingAskRepeat() == 0 {
 			continue
@@ -973,36 +962,16 @@ func (sa *Application) tryCustomAllocate(headRoom *resources.Resource, allowPree
 		}
 		request.setUserQuotaCheckPassed()
 		request.SetSchedulingAttempted(true)
-
-		// resource must fit in headroom otherwise skip the request (unless preemption could help)
-		if !headRoom.FitInMaxUndef(request.GetAllocatedResource()) {
-			// attempt preemption
-			if allowPreemption && *preemptAttemptsRemaining > 0 {
-				*preemptAttemptsRemaining--
-				fullIterator := fullNodeIterator()
-				if fullIterator != nil {
-					if alloc, ok := sa.tryPreemption(headRoom, preemptionDelay, request, fullIterator, false); ok {
-						// preemption occurred, and possibly reservation
-						return alloc
-					}
-				}
-			}
-			request.LogAllocationFailure(NotEnoughQueueQuota, true) // error message MUST be constant!
-			request.setHeadroomCheckFailed(headRoom, sa.queuePath)
-			continue
-		}
 		request.setHeadroomCheckPassed(sa.queuePath)
-	
-		requiredNode := selectedNode	
 		// does request have any constraint to run on specific node?
-		if requiredNode != "" {
+		if selectedNode != "" {
 			// the iterator might not have the node we need as it could be reserved, or we have not added it yet
-			node := getNodeFn(requiredNode)
+			node := getNodeFn(selectedNode)
 			if node == nil {
 				getRateLimitedAppLog().Info("required node is not found (could be transient)",
 					zap.String("application ID", sa.ApplicationID),
 					zap.String("allocationKey", request.GetAllocationKey()),
-					zap.String("required node", requiredNode))
+					zap.String("required node", selectedNode))
 				return nil
 			}
 			// Are there any non daemon set reservations on specific required node?
@@ -1019,7 +988,7 @@ func (sa *Application) tryCustomAllocate(headRoom *resources.Resource, allowPree
 				if _, ok := sa.reservations[reservationKey(node, nil, request)]; ok {
 					log.Log(log.SchedApplication).Debug("allocation on required node after release",
 						zap.String("appID", sa.ApplicationID),
-						zap.String("nodeID", requiredNode),
+						zap.String("nodeID", selectedNode),
 						zap.String("allocationKey", request.GetAllocationKey()))
 					alloc.SetResult(AllocatedReserved)
 					return alloc

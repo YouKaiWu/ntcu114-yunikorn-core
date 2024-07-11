@@ -24,7 +24,7 @@ func (fairnessManager *FairnessManager) ParseUsersInPartitionConfig(conf configs
 func (fairnessManager *FairnessManager) ParseUserInApp(app *objects.Application) {
 	appID, user, _ := utilization.ParseApp(app)
 	fairnessManager.GetTenants().AddUser(user)
-	unscheduledApps := fairnessManager.GetTenants().GetUser(user).UnscheduledApps
+	unscheduledApps := fairnessManager.GetTenants().GetUser(user).GetUnScheduledApps()
 	newApp := apps.NewApp(appID, app.SubmissionTime)
 	heap.Push(unscheduledApps, newApp)
 	log.Log(log.Custom).Info("Add application in fair manager", zap.String("user", user), zap.String("applicationID", appID), zap.Int("heap", unscheduledApps.Len()))
