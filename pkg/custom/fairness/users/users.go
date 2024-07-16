@@ -1,10 +1,12 @@
 package users
 
 import (
-	"sync"
-	// "fmt"
 	"github.com/apache/yunikorn-core/pkg/common/resources"
-	// "github.com/apache/yunikorn-core/pkg/log"
+	"github.com/apache/yunikorn-core/pkg/log"
+
+	"container/heap"
+	"fmt"
+	"sync"
 )
 
 type Users struct {
@@ -18,35 +20,42 @@ func NewUsers() *Users {
 	}
 }
 
-func (users *Users) GetUser(name string) *User {
+func (users *Users) GetUser(username string) *User {
 	users.Lock()
 	defer users.Unlock()
-	return users.users[name]
+	return users.users[username]
 }
 
-func (users *Users) AddUser(name string) {
+func (users *Users) AddUser(username string) {
 	users.Lock()
 	defer users.Unlock()
-	if _, exist := users.users[name]; !exist {
-		users.users[name] = NewUser()
+	if _, exist := users.users[username]; !exist {
+		users.users[username] = NewUser()
 	}
 }
 
-func (users *Users) GetMinDRFUser(clusterResource *resources.Resource) string {
+func (users *Users) GetMinDRSUser(clusterResource *resources.Resource) string {  // DRS stand for dominant resource share
 	users.Lock()
 	defer users.Unlock()
 	if len(users.users) == 0 {
 		return ""
 	}
-	minDRF := 1.0 // default max
-	minUser := ""
-	for userName, user := range users.users {
-		drf := user.GetDRF(clusterResource)
-		if drf < minDRF {
-			minDRF = drf
-			minUser = userName
+	usersHeap := NewUsersHeap()
+	for username, user := range users.users {
+		dominantResourceShare, dominantResourceType := user.GetDRS(clusterResource)
+		userInfo := NewUserInfo(username, dominantResourceShare, dominantResourceType)
+		heap.Push(usersHeap, userInfo)
+	}
+	for usersHeap.Len() > 0 {
+		curUserInfo := heap.Pop(usersHeap).(*UserInfo)
+		curUsername := curUserInfo.username
+		curDRS := curUserInfo.dominantResourceShare
+		curDominantResourceType := curUserInfo.dominantResourceType
+		curUser := users.users[curUsername]
+		if curUser.unScheduledApps.Len() > 0 {
+			log.Log(log.Custom).Info(fmt.Sprintf("minUser:%v, dominantResourceShare: %v, resourceType: %v", curUsername, curDRS, curDominantResourceType))
+			return curUsername
 		}
 	}
-	// log.Log(log.Custom).Info(fmt.Sprintf("mindrf: %v", minDRF))
-	return minUser
+	return ""
 }

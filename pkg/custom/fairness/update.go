@@ -1,13 +1,13 @@
 package fairness
 
 import (
-	"container/heap"
-
 	"github.com/apache/yunikorn-core/pkg/common/resources"
 	"github.com/apache/yunikorn-core/pkg/custom/fairness/apps"
-	"github.com/apache/yunikorn-core/pkg/custom/utilization"
+	"github.com/apache/yunikorn-core/pkg/custom/parser"
 	"github.com/apache/yunikorn-core/pkg/log"
 	"github.com/apache/yunikorn-core/pkg/scheduler/objects"
+	
+	"container/heap"
 	"go.uber.org/zap"
 )
 
@@ -15,7 +15,7 @@ import (
 
 func (fairnessManager *FairnessManager) UpdateScheduledApp(app *objects.Application) {
 	log.Log(log.Custom).Info("update scheduled app")
-	appID, username, requestResource := utilization.ParseApp(app)
+	appID, username, requestResource := parser.ParseApp(app)
 	fairnessManager.scheduledApps[appID] = true
 	user := fairnessManager.GetTenants().GetUser(username)
 	user.Allocate(appID, requestResource)
@@ -72,10 +72,4 @@ func (fairnessManager *FairnessManager) AddCompletedApp(appID string, username s
 	defer fairnessManager.Unlock()
 	user := fairnessManager.GetTenants().GetUser(username)
 	user.Release(appID)
-	// if _, exist := user.AppsRequestResource[appID]; exist {
-	// 	delete(user.AppsRequestResource, appID)
-
-	// 	fairnessManager.GetTenants().Release(info.user, appID)
-	// 	// f.GetDRFsWhenComplete(f.GetTenants().GetDRFs(f.clusterResource.Clone()))
-	// }
 }

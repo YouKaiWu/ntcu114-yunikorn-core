@@ -3,24 +3,26 @@ package users
 import (
 	"github.com/apache/yunikorn-core/pkg/common/resources"
 	"github.com/apache/yunikorn-core/pkg/custom/fairness/apps"
-	sicommon "github.com/apache/yunikorn-scheduler-interface/lib/go/common"
 	"github.com/apache/yunikorn-core/pkg/log"
+
+	sicommon "github.com/apache/yunikorn-scheduler-interface/lib/go/common"
+	
 	"fmt"
 	"sync"
 )
 
 type User struct{
 	unScheduledApps *apps.Apps 
-	CompletedApps map[string]bool 
-	AppsRequestResource map[string]*resources.Resource
+	completedApps map[string]bool 
+	appsRequestResource map[string]*resources.Resource
 	sync.RWMutex
 }
 
 func NewUser() *User{
 	return &User{
 		unScheduledApps: apps.NewApps(),
-		CompletedApps: make(map[string]bool),
-		AppsRequestResource: make(map[string]*resources.Resource, 0),
+		completedApps: make(map[string]bool),
+		appsRequestResource: make(map[string]*resources.Resource, 0),
 	}
 }
 
@@ -33,7 +35,7 @@ func (user* User) GetUnScheduledApps() *apps.Apps {
 
 
 
-func (user *User) GetDRF(clusterResource *resources.Resource) float64{
+func (user *User) GetDRS(clusterResource *resources.Resource) (dominantResourceShare float64, dominantResourcesType string){  // DRS stand for dominant resource share
 	user.Lock()
 	defer user.Unlock()
 	resourceTypes := []string{sicommon.CPU, sicommon.Memory}
@@ -42,36 +44,38 @@ func (user *User) GetDRF(clusterResource *resources.Resource) float64{
 	for _, resourceType := range resourceTypes{
 		userResources[resourceType] = 0.0
 	}
-	for appID, completed := range user.CompletedApps{
+	for appID, completed := range user.completedApps{
 		if !completed {
-			if _, exist := user.AppsRequestResource[appID]; exist{
+			if _, exist := user.appsRequestResource[appID]; exist{
 				user.Release(appID)
 			}
 		}
 	}
 	// sum up
-	for _, resource := range user.AppsRequestResource{
+	for _, resource := range user.appsRequestResource{
 		for _, resourceType := range resourceTypes{
 			userResources[resourceType] += float64(resource.Resources[resourceType]) 
 		}
 	}
 	// compute dominant resource
-	drf := 0.0
+	dominantResourceShare = 0.0
+	dominantResourcesType = sicommon.CPU
 	for _, resourceType := range resourceTypes{
-		tmp := userResources[resourceType] / float64(clusterResource.Resources[resourceType])
-		if tmp > drf {
-			drf = tmp
+		curResourceShare := userResources[resourceType] / float64(clusterResource.Resources[resourceType])
+		if curResourceShare > dominantResourceShare {
+			dominantResourcesType = resourceType
+			dominantResourceShare = curResourceShare
 		}
 	}
-	return drf
+	return 
 }
 
 func (user *User) Allocate(appID string, requestResource *resources.Resource){
 	user.Lock()
 	defer user.Unlock()
 	log.Log(log.Custom).Info(fmt.Sprintf("app allocate, id:%v", appID))
-	if _, exist := user.AppsRequestResource[appID]; !exist {
-		user.AppsRequestResource[appID] = requestResource.Clone()
+	if _, exist := user.appsRequestResource[appID]; !exist {
+		user.appsRequestResource[appID] = requestResource.Clone()
 	}
 }
 
@@ -79,14 +83,10 @@ func (user *User) Release(appID string){
 	user.Lock()
 	defer user.Unlock()
 	log.Log(log.Custom).Info(fmt.Sprintf("app release, id:%v", appID))
-	if _, exist := user.AppsRequestResource[appID]; exist {
-		delete(user.AppsRequestResource, appID)
-		user.CompletedApps[appID] = true
+	if _, exist := user.appsRequestResource[appID]; exist {
+		delete(user.appsRequestResource, appID)
+		user.completedApps[appID] = true
 	} else {
-		user.CompletedApps[appID] = false
+		user.completedApps[appID] = false
 	}
-	// if _, exist := user.AppsRequestResource[appID]; exist {
-		
-	// 	// f.GetDRFsWhenComplete(f.GetTenants().GetDRFs(f.clusterResource.Clone()))
-	// }
 }

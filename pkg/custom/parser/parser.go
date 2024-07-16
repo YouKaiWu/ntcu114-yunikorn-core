@@ -1,15 +1,15 @@
-package utilization
+package parser
 
 import (
-	"fmt"
-
 	"github.com/apache/yunikorn-core/pkg/common/configs"
 	"github.com/apache/yunikorn-core/pkg/common/resources"
 	"github.com/apache/yunikorn-core/pkg/common/security"
 	"github.com/apache/yunikorn-core/pkg/log"
 	"github.com/apache/yunikorn-core/pkg/scheduler/objects"
+
 	sicommon "github.com/apache/yunikorn-scheduler-interface/lib/go/common"
 
+	"fmt"
 	"go.uber.org/zap"
 )
 

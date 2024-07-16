@@ -1,16 +1,12 @@
 package fairness
 
 import (
-	"container/heap"
-
 	"github.com/apache/yunikorn-core/pkg/common/resources"
 	"github.com/apache/yunikorn-core/pkg/custom/fairness/apps"
 	"github.com/apache/yunikorn-core/pkg/custom/fairness/users"
-	// "github.com/apache/yunikorn-core/pkg/log"
+
+	"container/heap"
 	"sync"
-
-	// "fmt"
-
 )
 
 type FairnessManager struct {
@@ -38,8 +34,7 @@ func(fairnessManager *FairnessManager) NextAppToSchedule() (scheduled bool, appI
 	fairnessManager.Lock()
 	defer fairnessManager.Unlock()
 	tenants:= fairnessManager.GetTenants()
-	username := tenants.GetMinDRFUser(fairnessManager.clusterResources.Clone())
-	// log.Log(log.Custom).Info(fmt.Sprintf("cluster cpu res:%v\n cluster memory res:%v", fairnessManager.clusterResources.Resources["vcore"], fairnessManager.clusterResources.Resources["memory"]))
+	username := tenants.GetMinDRSUser(fairnessManager.clusterResources.Clone())
 	if username == ""{
 		return false, ""
 	}
@@ -47,7 +42,6 @@ func(fairnessManager *FairnessManager) NextAppToSchedule() (scheduled bool, appI
 	if unScheduledApps.Len() == 0{
 		return false, ""
 	}
-	// log.Log(log.Custom).Info(fmt.Sprintf("username:%v", username))
 	targetApp := heap.Pop(unScheduledApps).(*apps.App)
 	if _, exist := fairnessManager.scheduledApps[targetApp.Id]; exist{
 		delete(fairnessManager.scheduledApps, targetApp.Id)

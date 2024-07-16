@@ -1,11 +1,13 @@
 package formula
 
 import (
-	"testing"
-	"gotest.tools/v3/assert"
 	// "github.com/apache/yunikorn-core/pkg/common/resources"
 	// "github.com/apache/yunikorn-core/pkg/custom/loadbalance/nodes"
+
 	// sicommon "github.com/apache/yunikorn-scheduler-interface/lib/go/common"
+	
+	"testing"
+	"gotest.tools/v3/assert"
 )
 
 
@@ -77,7 +79,7 @@ import (
 func TestGetBestSol(t *testing.T) {
 	meansOfObjects := [...]float64{1, 2, 3}
 	stdDevsOfObjectsOfObjects := [...]float64{1, 2, 3}
-	minMean, minStdDev := GetBestSol(meansOfObjects[:], stdDevsOfObjectsOfObjects[:])
+	minMean, minStdDev := getBestSol(meansOfObjects[:], stdDevsOfObjectsOfObjects[:])
 	expectMinMean := 1.0
 	expectMinStdDev := 1.0
 	assert.Equal(t, minMean, expectMinMean)
@@ -87,7 +89,7 @@ func TestGetBestSol(t *testing.T) {
 func TestGetWorstSol(t *testing.T) {
 	meansOfObjects := [...]float64{1, 2, 3}
 	stdDevsOfObjects := [...]float64{1, 2, 3}
-	maxMean, maxStdDev := GetWorstSol(meansOfObjects[:], stdDevsOfObjects[:])
+	maxMean, maxStdDev := getWorstSol(meansOfObjects[:], stdDevsOfObjects[:])
 	expectMaxMean := 3.0
 	expectMaxStdDev := 3.0
 	assert.Equal(t, maxMean, expectMaxMean)
@@ -97,7 +99,7 @@ func TestGetWorstSol(t *testing.T) {
 func TestGetEuclideanDistance(t *testing.T) {
 	x := [...]float64{4, 5, 6, 7}
 	y := [...]float64{1, 2, 3, 4}
-	distance := GetEuclideanDistance(x[:], y[:])
+	distance := getEuclideanDistance(x[:], y[:])
 	expect := 6
 	assert.Equal(t, distance, expect)
 }
@@ -105,7 +107,7 @@ func TestGetEuclideanDistance(t *testing.T) {
 func TestGetRCVal(t *testing.T) {
 	best := 1.0
 	worst := 4.0
-	rc := GetRCVal(best, worst)
+	rc := getRCVal(best, worst)
 	expect := 0.8
 	assert.Equal(t, rc, expect)
 }

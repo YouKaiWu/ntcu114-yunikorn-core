@@ -2,8 +2,9 @@ package nodes
 
 import(
 	"github.com/apache/yunikorn-core/pkg/common/resources"
-	"github.com/apache/yunikorn-core/pkg/scheduler/objects"
 	"github.com/apache/yunikorn-core/pkg/log"
+	"github.com/apache/yunikorn-core/pkg/scheduler/objects"
+
 	"fmt"
 )
 

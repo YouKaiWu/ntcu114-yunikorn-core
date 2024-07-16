@@ -29,15 +29,15 @@ import (
 // }
 func TestGetMean (t *testing.T) {
 	objects := [...]float64{-1.0, 0.0, 1.0}
-	mean := GetMean(objects[:])
+	mean := getMean(objects[:])
 	expect := 0.0
 	assert.Equal(t, mean, expect)
 }
 
 func TestGetStdDev (t *testing.T) {
 	objects := [...]float64{-1.0, 0.0, 1.0}
-	mean := GetMean(objects[:])
-	stdDev := GetStdDev(objects[:], mean)
+	mean := getMean(objects[:])
+	stdDev := getStdDev(objects[:], mean)
 	expect := 0.816496580927726
 	assert.Equal(t, stdDev, expect)
 }
@@ -45,9 +45,9 @@ func TestGetStdDev (t *testing.T) {
 func TestGetStandardizationScore (t *testing.T) {
 	object := 0.5
 	objects := [...]float64{-1.0, 0.0, 1.0}
-	mean := GetMean(objects[:])
-	stdDev := GetStdDev(objects[:], mean)
-	standardizationScore := GetStandardizationScore(object, mean, stdDev)
+	mean := getMean(objects[:])
+	stdDev := getStdDev(objects[:], mean)
+	standardizationScore := getStandardizationScore(object, mean, stdDev)
 	expect := 0.6123724356957945
 	assert.Equal(t, standardizationScore, expect)
 }

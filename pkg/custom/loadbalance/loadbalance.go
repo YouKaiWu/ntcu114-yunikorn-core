@@ -3,7 +3,7 @@ package loadbalance
 import (
 	"github.com/apache/yunikorn-core/pkg/custom/loadbalance/formula"
 	"github.com/apache/yunikorn-core/pkg/custom/loadbalance/nodes"
-	"github.com/apache/yunikorn-core/pkg/custom/utilization"
+	"github.com/apache/yunikorn-core/pkg/custom/parser"
 	"github.com/apache/yunikorn-core/pkg/scheduler/objects"
 )
 
@@ -22,7 +22,7 @@ func (loadbalanceManager *LoadbalanceManager)GetNodes() *nodes.Nodes{
 }
 
 func (loadbalanceManager *LoadbalanceManager) SelectNode(app *objects.Application) string{
-	_, _, requestResource := utilization.ParseApp(app)
+	_, _, requestResource := parser.ParseApp(app)
 	fitInNodes := loadbalanceManager.nodes.GetFitInNodes(requestResource);
 	selectedNode := formula.TOPSIS(requestResource, fitInNodes)
 	return selectedNode
