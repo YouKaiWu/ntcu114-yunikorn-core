@@ -126,13 +126,16 @@ func (cc *ClusterContext) customSchedule() bool {
 		if psc.isStopped() {
 			continue
 		}
-		// try reservations first
 		schedulingStart := time.Now()
-		_, appID := custom.GetFairnessManager().NextAppToSchedule()
+		appID := custom.GetFairnessManager().NextAppToSchedule()
 		if app := psc.getApplication(appID); app != nil{
 			var alloc *objects.Allocation
 			if app.GetAllRequests() != nil{
+				log.Log(log.Custom).Info(fmt.Sprintf("current schedule appid:%v", appID))
 				selectedNode := custom.GetLoadBalanceManager().SelectNode(app)
+				if selectedNode == ""{
+					continue
+				}
 				alloc = app.TrySelectedNode(selectedNode, psc.GetNode)
 			}
 			if alloc != nil {

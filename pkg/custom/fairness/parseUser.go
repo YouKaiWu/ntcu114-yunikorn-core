@@ -22,6 +22,8 @@ func (fairnessManager *FairnessManager) ParseUsersInPartitionConfig(conf configs
 
 // If there is a new tenant's name in the new submitted application, add the username to the fairnessmanager
 func (fairnessManager *FairnessManager) ParseUserInApp(app *objects.Application) {
+	fairnessManager.Lock()
+	defer fairnessManager.Unlock()
 	appID, user, _ := parser.ParseApp(app)
 	fairnessManager.GetTenants().AddUser(user)
 	unscheduledApps := fairnessManager.GetTenants().GetUser(user).GetUnScheduledApps()

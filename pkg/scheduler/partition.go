@@ -301,7 +301,7 @@ func (pc *PartitionContext) AddApplication(app *objects.Application) error {
 	if pc.getApplication(appID) != nil {
 		return fmt.Errorf("adding application %s to partition %s, but application already existed", appID, pc.Name)
 	}
-	custom.GetFairnessManager().ParseUserInApp(app)
+	// custom.GetFairnessManager().ParseUserInApp(app)
 	// Put app under the queue
 	pm := pc.getPlacementManager()
 	err := pm.PlaceApplication(app)
@@ -1249,7 +1249,7 @@ func (pc *PartitionContext) removeAllocation(release *si.AllocationRelease) ([]*
 	appID := release.ApplicationID
 	allocationID := release.GetAllocationID()
 	app := pc.getApplication(appID)
-	custom.GetFairnessManager().AddCompletedApp(appID, app.GetUser().User)
+	// custom.GetFairnessManager().AddCompletedApp(appID, app.GetUser().User)
 	// no app nothing to do everything should already be clean
 	if app == nil {
 		log.Log(log.SchedPartition).Info("Application not found while releasing allocation",
@@ -1410,6 +1410,7 @@ func (pc *PartitionContext) removeAllocationAsk(release *si.AllocationAskRelease
 			zap.Stringer("terminationType", release.TerminationType))
 		return
 	}
+	custom.GetFairnessManager().AddCompletedApp(app.ApplicationID, app.GetUser().User)
 	// remove the allocation asks from the app
 	_ = app.RemoveAllocationAsk(allocKey)
 }
@@ -1424,6 +1425,8 @@ func (pc *PartitionContext) addAllocationAsk(siAsk *si.AllocationAsk) error {
 	if app == nil {
 		return fmt.Errorf("failed to find application %s, for allocation ask %s", siAsk.ApplicationID, siAsk.AllocationKey)
 	}
+	// log.Log(log.Custom).Info(fmt.Sprintf("app add allocation ask appid:%v", app.ApplicationID))
+	custom.GetFairnessManager().ParseUserInApp(app)
 	// add the allocation asks to the app
 	return app.AddAllocationAsk(objects.NewAllocationAskFromSI(siAsk))
 }
@@ -1462,7 +1465,7 @@ func (pc *PartitionContext) moveTerminatedApp(appID string) {
 			zap.String("appID", appID))
 		return
 	}
-	custom.GetFairnessManager().AddCompletedApp(appID, app.GetUser().User)
+	// custom.GetFairnessManager().AddCompletedApp(appID, app.GetUser().User)
 	app.UnSetQueue()
 	// new ID as completedApplications map key, use negative value to get a divider
 	newID := appID + strconv.FormatInt(-(time.Now()).Unix(), 10)

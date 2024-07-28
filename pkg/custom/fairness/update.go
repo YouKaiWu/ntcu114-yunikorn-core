@@ -7,6 +7,7 @@ import (
 	"github.com/apache/yunikorn-core/pkg/log"
 	"github.com/apache/yunikorn-core/pkg/scheduler/objects"
 	
+	// "fmt"
 	"container/heap"
 	"go.uber.org/zap"
 )
@@ -14,7 +15,8 @@ import (
 
 
 func (fairnessManager *FairnessManager) UpdateScheduledApp(app *objects.Application) {
-	log.Log(log.Custom).Info("update scheduled app")
+	fairnessManager.Lock()
+	defer fairnessManager.Unlock()
 	appID, username, requestResource := parser.ParseApp(app)
 	fairnessManager.scheduledApps[appID] = true
 	user := fairnessManager.GetTenants().GetUser(username)
@@ -70,6 +72,7 @@ func (fairnessManager *FairnessManager) RemoveNode(nodeID string) {
 func (fairnessManager *FairnessManager) AddCompletedApp(appID string, username string) {
 	fairnessManager.Lock()
 	defer fairnessManager.Unlock()
+	// log.Log(log.Custom).Info(fmt.Sprintf("app complete, appId:%v", appID))
 	user := fairnessManager.GetTenants().GetUser(username)
 	user.Release(appID)
 }

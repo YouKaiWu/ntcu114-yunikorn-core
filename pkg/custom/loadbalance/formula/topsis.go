@@ -45,7 +45,7 @@ func TOPSIS(reqestResource *resources.Resource, nodes nodes.Nodes) string {
 	stdDevOfStdDevs := getStdDev(stdDevs, meanOfStdDevs)
 	
 	for idx := range nodes {
-		log.Log(log.Custom).Info(fmt.Sprintf("cur node : %v", nodesIdx[idx]))
+		// log.Log(log.Custom).Info(fmt.Sprintf("cur node : %v", nodesIdx[idx]))
 		// standardlizationScore of mean
 		scoreOfMean := 0.0
 		if stdDevOfMeans != 0{
@@ -57,7 +57,7 @@ func TOPSIS(reqestResource *resources.Resource, nodes nodes.Nodes) string {
 		if stdDevOfStdDevs != 0{
 			scoreOfStdDev = getStandardizationScore(stdDevs[idx], meanOfStdDevs, stdDevOfStdDevs)
 		}
-		log.Log(log.Custom).Info(fmt.Sprintf("scoreOfMean: %v, scoreOfStdDev: %v", scoreOfMean, scoreOfStdDev))
+		// log.Log(log.Custom).Info(fmt.Sprintf("scoreOfMean: %v, scoreOfStdDev: %v", scoreOfMean, scoreOfStdDev))
 		scoresOfStdDevs = append(scoresOfStdDevs, scoreOfStdDev)
 	}
 

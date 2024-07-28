@@ -23,7 +23,10 @@ func (loadbalanceManager *LoadbalanceManager)GetNodes() *nodes.Nodes{
 
 func (loadbalanceManager *LoadbalanceManager) SelectNode(app *objects.Application) string{
 	_, _, requestResource := parser.ParseApp(app)
-	fitInNodes := loadbalanceManager.nodes.GetFitInNodes(requestResource);
+	fitInNodes := loadbalanceManager.nodes.GetFitInNodes(requestResource)
+	if len(fitInNodes) == 0 {
+		return ""
+	}
 	selectedNode := formula.TOPSIS(requestResource, fitInNodes)
 	return selectedNode
 }

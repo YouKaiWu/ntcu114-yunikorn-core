@@ -30,17 +30,17 @@ func (fairnessManager *FairnessManager) GetTenants() *users.Users{
 	return fairnessManager.tenants
 }
 
-func(fairnessManager *FairnessManager) NextAppToSchedule() (scheduled bool, appId string){
+func(fairnessManager *FairnessManager) NextAppToSchedule() (appId string){
 	fairnessManager.Lock()
 	defer fairnessManager.Unlock()
 	tenants:= fairnessManager.GetTenants()
 	username := tenants.GetMinDRSUser(fairnessManager.clusterResources.Clone())
 	if username == ""{
-		return false, ""
+		return ""
 	}
 	unScheduledApps := tenants.GetUser(username).GetUnScheduledApps()
 	if unScheduledApps.Len() == 0{
-		return false, ""
+		return ""
 	}
 	targetApp := heap.Pop(unScheduledApps).(*apps.App)
 	if _, exist := fairnessManager.scheduledApps[targetApp.Id]; exist{
@@ -49,10 +49,10 @@ func(fairnessManager *FairnessManager) NextAppToSchedule() (scheduled bool, appI
 			targetApp = heap.Pop(unScheduledApps).(*apps.App)
 			heap.Push(unScheduledApps, targetApp)
 		}else{
-			return false, ""
+			return ""
 		}
 	}else {
 		heap.Push(unScheduledApps, targetApp)
 	}
-	return true, targetApp.Id
+	return targetApp.Id
 }

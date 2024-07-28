@@ -17,7 +17,7 @@ func NewNodes() *Nodes{
 
 func (nodes *Nodes) AddNode(node *objects.Node){
 	*nodes = append(*nodes, node);
-	log.Log(log.Custom).Info(fmt.Sprintf("custom added node: %v", node.NodeID));
+	log.Log(log.Custom).Info(fmt.Sprintf("custom add node: %v", node.NodeID));
 }
 
 func (nodes *Nodes) GetFitInNodes(requestResource *resources.Resource) Nodes{

@@ -44,13 +44,6 @@ func (user *User) GetDRS(clusterResource *resources.Resource) (dominantResourceS
 	for _, resourceType := range resourceTypes{
 		userResources[resourceType] = 0.0
 	}
-	for appID, completed := range user.completedApps{
-		if !completed {
-			if _, exist := user.appsRequestResource[appID]; exist{
-				user.Release(appID)
-			}
-		}
-	}
 	// sum up
 	for _, resource := range user.appsRequestResource{
 		for _, resourceType := range resourceTypes{

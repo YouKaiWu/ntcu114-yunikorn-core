@@ -9,7 +9,7 @@ import (
 
 	sicommon "github.com/apache/yunikorn-scheduler-interface/lib/go/common"
 
-	"fmt"
+	// "fmt"
 	"go.uber.org/zap"
 )
 
@@ -19,14 +19,14 @@ var (
 
 
 // Parse the vcore and memory in node
-func ParseNode(n *objects.Node) (nodeID string, avialble *resources.Resource, capacity *resources.Resource) {
+func ParseNode(n *objects.Node) (nodeID string, available *resources.Resource, capacity *resources.Resource) {
 	nodeID = n.NodeID
-	avialble = resources.NewResource()
+	available = resources.NewResource()
 	capacity = resources.NewResource()
 
 	resources := n.GetAvailableResource().Resources
 	for _, targetType := range ResourceType {
-		avialble.Resources[targetType] = resources[targetType]
+		available.Resources[targetType] = resources[targetType]
 	}
 
 	resources = n.GetCapacity().Resources
@@ -40,18 +40,14 @@ func ParseApp(app *objects.Application) (appID string, username string, totalRes
 	appID = app.ApplicationID
 	username = app.GetUser().User
 	totalResource = resources.NewResource()
-	if app.GetAllRequests() == nil {
-		log.Log(log.Custom).Info("request is nil")
-	}else{
-		log.Log(log.Custom).Info("request exist")
-	}
+	// if app.GetAllRequests() == nil {
+	// 	log.Log(log.Custom).Info("request is nil")
+	// }else{
+	// 	log.Log(log.Custom).Info("request exist")
+	// }
 	for _, request := range app.GetAllRequests(){
 		curResource := request.GetAllocatedResource()
 		totalResource.AddTo(curResource)
-	}
-	log.Log(log.Custom).Info(fmt.Sprintf("appId:%v, the following resource of this app", appID))
-	for key, val := range totalResource.Resources{
-		log.Log(log.Custom).Info(fmt.Sprintf("key: %v; val: %v", key, val))
 	}
 	return
 }
