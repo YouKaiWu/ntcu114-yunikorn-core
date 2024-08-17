@@ -4,6 +4,7 @@ import (
 	"github.com/apache/yunikorn-core/pkg/common/resources"
 	"github.com/apache/yunikorn-core/pkg/custom/loadbalance/nodes"
 	"github.com/apache/yunikorn-core/pkg/log"
+	// "go.uber.org/zap"
 
 	sicommon "github.com/apache/yunikorn-scheduler-interface/lib/go/common"
 
@@ -33,6 +34,8 @@ func TOPSIS(reqestResource *resources.Resource, nodes nodes.Nodes) string {
 		means = append(means, getMean(dominantLoads))
 		stdDevs = append(stdDevs, getStdDev(dominantLoads, means[idx]))
 		dominantLoads[idx] = originalDominantLoad
+
+		// log.Log(log.Custom).Info(node.String(), zap.Bool("isSchedulable", node.IsSchedulable()))
 	}
 
 	// standardlizationScore

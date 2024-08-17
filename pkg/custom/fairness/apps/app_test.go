@@ -18,7 +18,7 @@ func TestNewApp(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.caseName, func(t *testing.T) {
-			tmp := NewApp(test.input.id, test.input.submissionTime)
+			tmp := NewApp(test.input.id, test.input.submissionTime,"")
 			if tmp.Id != test.input.id || !tmp.SubmissionTime.Equal(test.input.submissionTime) {
 				t.Errorf("Expected %s %v, got %s %v",
 					test.input.id,

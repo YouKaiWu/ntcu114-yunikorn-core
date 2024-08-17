@@ -36,22 +36,22 @@ func ParseNode(n *objects.Node) (nodeID string, available *resources.Resource, c
 	return
 }
 
-func ParseApp(app *objects.Application) (appID string, username string, totalResource *resources.Resource) {
+func ParseApp(app *objects.Application, allocationKey string) (appID string, username string, requestResource *resources.Resource) {
 	appID = app.ApplicationID
 	username = app.GetUser().User
-	totalResource = resources.NewResource()
-	// if app.GetAllRequests() == nil {
-	// 	log.Log(log.Custom).Info("request is nil")
-	// }else{
-	// 	log.Log(log.Custom).Info("request exist")
+	requestResource = app.GetAllocationAsk(allocationKey).GetAllocatedResource()
+	// log.Log(log.Custom).Info(fmt.Sprintf("appID:%v consume resource", appID))
+	// for _, rType := range ResourceType{
+	// 	log.Log(log.Custom).Info(fmt.Sprintf("resourceType: %v, quantity: %v", rType, requestResource.Resources[rType]))
 	// }
-	for _, request := range app.GetAllRequests(){
-		curResource := request.GetAllocatedResource()
-		totalResource.AddTo(curResource)
-	}
 	return
 }
 
+func ParseAppWithoutResource(app *objects.Application) (appID string, username string) {
+	appID = app.ApplicationID
+	username = app.GetUser().User
+	return
+}
 
 func ParseUsersInPartitionConfig(conf configs.PartitionConfig) []string {
 	users := make([]string, 0)

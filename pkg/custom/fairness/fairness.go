@@ -11,7 +11,6 @@ import (
 
 type FairnessManager struct {
 	tenants         *users.Users
-	scheduledApps   map[string]bool 
 	clusterResources *resources.Resource
 	nodesCapacity map[string]*resources.Resource
 	sync.RWMutex
@@ -20,7 +19,6 @@ type FairnessManager struct {
 func NewFairnessManager() *FairnessManager {
 	return &FairnessManager{
 		tenants:         users.NewUsers(),
-		scheduledApps:   make(map[string]bool, 0),
 		clusterResources: resources.NewResource(),
 		nodesCapacity: make(map[string]*resources.Resource, 0),
 	}
@@ -30,29 +28,20 @@ func (fairnessManager *FairnessManager) GetTenants() *users.Users{
 	return fairnessManager.tenants
 }
 
-func(fairnessManager *FairnessManager) NextAppToSchedule() (appId string){
+func(fairnessManager *FairnessManager) NextAppToSchedule() (appId string, allocationKey string){
 	fairnessManager.Lock()
 	defer fairnessManager.Unlock()
 	tenants:= fairnessManager.GetTenants()
 	username := tenants.GetMinDRSUser(fairnessManager.clusterResources.Clone())
 	if username == ""{
-		return ""
+		return "", ""
 	}
-	unScheduledApps := tenants.GetUser(username).GetUnScheduledApps()
+	user := tenants.GetUser(username)
+	unScheduledApps := user.GetUnScheduledApps()
 	if unScheduledApps.Len() == 0{
-		return ""
+		return "", ""
 	}
 	targetApp := heap.Pop(unScheduledApps).(*apps.App)
-	if _, exist := fairnessManager.scheduledApps[targetApp.Id]; exist{
-		delete(fairnessManager.scheduledApps, targetApp.Id)
-		if unScheduledApps.Len() > 0{
-			targetApp = heap.Pop(unScheduledApps).(*apps.App)
-			heap.Push(unScheduledApps, targetApp)
-		}else{
-			return ""
-		}
-	}else {
-		heap.Push(unScheduledApps, targetApp)
-	}
-	return targetApp.Id
+	heap.Push(unScheduledApps, targetApp)
+	return targetApp.Id, targetApp.AllocationKey
 }

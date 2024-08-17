@@ -1426,7 +1426,7 @@ func (pc *PartitionContext) addAllocationAsk(siAsk *si.AllocationAsk) error {
 		return fmt.Errorf("failed to find application %s, for allocation ask %s", siAsk.ApplicationID, siAsk.AllocationKey)
 	}
 	// log.Log(log.Custom).Info(fmt.Sprintf("app add allocation ask appid:%v", app.ApplicationID))
-	custom.GetFairnessManager().ParseUserInApp(app)
+	custom.GetFairnessManager().ParseUserInApp(app, siAsk.AllocationKey)
 	// add the allocation asks to the app
 	return app.AddAllocationAsk(objects.NewAllocationAskFromSI(siAsk))
 }

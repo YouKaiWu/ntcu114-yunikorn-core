@@ -16,14 +16,20 @@ func NewNodes() *Nodes{
 }
 
 func (nodes *Nodes) AddNode(node *objects.Node){
-	*nodes = append(*nodes, node);
-	log.Log(log.Custom).Info(fmt.Sprintf("custom add node: %v", node.NodeID));
+	if node.GetAttribute("Taints") == "false"{
+		*nodes = append(*nodes, node);
+		log.Log(log.Custom).Info(fmt.Sprintf("custom add node: %v", node.NodeID));
+	}
+	// log.Log(log.Custom).Info(fmt.Sprintf("cur node: %v", node.NodeID));
+	// for key, val := range node.GetAttributes(){
+	// 	log.Log(log.Custom).Info(fmt.Sprintf("key:%v, val: %v", key, val))
+	// }
 }
 
 func (nodes *Nodes) GetFitInNodes(requestResource *resources.Resource) Nodes{
 	var fitInNodes Nodes 
 	for _, node := range *nodes{
-		if node.IsSchedulable() && node.CanAllocate(requestResource){
+		if node.IsSchedulable() && node.CanAllocate(requestResource) {
 			fitInNodes = append(fitInNodes, node)
 		}
 	}

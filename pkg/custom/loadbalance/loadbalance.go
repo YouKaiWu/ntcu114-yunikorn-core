@@ -1,6 +1,7 @@
 package loadbalance
 
 import (
+	// "github.com/apache/yunikorn-core/pkg/common/resources"
 	"github.com/apache/yunikorn-core/pkg/custom/loadbalance/formula"
 	"github.com/apache/yunikorn-core/pkg/custom/loadbalance/nodes"
 	"github.com/apache/yunikorn-core/pkg/custom/parser"
@@ -21,8 +22,8 @@ func (loadbalanceManager *LoadbalanceManager)GetNodes() *nodes.Nodes{
 	return loadbalanceManager.nodes;
 }
 
-func (loadbalanceManager *LoadbalanceManager) SelectNode(app *objects.Application) string{
-	_, _, requestResource := parser.ParseApp(app)
+func (loadbalanceManager *LoadbalanceManager) SelectNode(app *objects.Application, allocationKey string) string{
+	_, _, requestResource := parser.ParseApp(app, allocationKey)
 	fitInNodes := loadbalanceManager.nodes.GetFitInNodes(requestResource)
 	if len(fitInNodes) == 0 {
 		return ""

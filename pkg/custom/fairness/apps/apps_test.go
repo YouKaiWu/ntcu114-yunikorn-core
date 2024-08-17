@@ -39,7 +39,7 @@ func TestApps(t *testing.T) {
 		t.Run(test.caseName, func(t *testing.T) {
 			h := NewApps()
 			for _, element := range test.apps {
-				heap.Push(h, NewApp(element.id, element.submissionTime))
+				heap.Push(h, NewApp(element.id, element.submissionTime, ""))
 			}
 
 			if len(test.expected) != h.Len() {

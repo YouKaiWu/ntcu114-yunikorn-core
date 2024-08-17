@@ -127,20 +127,20 @@ func (cc *ClusterContext) customSchedule() bool {
 			continue
 		}
 		schedulingStart := time.Now()
-		appID := custom.GetFairnessManager().NextAppToSchedule()
+		appID, allocationKey := custom.GetFairnessManager().NextAppToSchedule()
 		if app := psc.getApplication(appID); app != nil{
 			var alloc *objects.Allocation
 			if app.GetAllRequests() != nil{
-				log.Log(log.Custom).Info(fmt.Sprintf("current schedule appid:%v", appID))
-				selectedNode := custom.GetLoadBalanceManager().SelectNode(app)
+				selectedNode := custom.GetLoadBalanceManager().SelectNode(app, allocationKey)
 				if selectedNode == ""{
 					continue
 				}
-				alloc = app.TrySelectedNode(selectedNode, psc.GetNode)
+				log.Log(log.Custom).Info(fmt.Sprintf("current schedule appid:%v", appID))
+				alloc = app.TrySelectedNode(allocationKey, selectedNode, psc.GetNode)
 			}
 			if alloc != nil {
-				log.Log(log.Custom).Info(fmt.Sprintf("updatedApp: %v", appID))
-				custom.GetFairnessManager().UpdateScheduledApp(app)
+				log.Log(log.Custom).Info(fmt.Sprintf("updatedApp: %v", alloc.GetApplicationID()))
+				custom.GetFairnessManager().UpdateScheduledApp(app, alloc.GetAllocationKey())
 				metrics.GetSchedulerMetrics().ObserveSchedulingLatency(schedulingStart)
 				if alloc.GetResult() == objects.Replaced {
 					// communicate the removal to the RM

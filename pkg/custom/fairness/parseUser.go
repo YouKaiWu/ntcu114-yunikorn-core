@@ -21,13 +21,15 @@ func (fairnessManager *FairnessManager) ParseUsersInPartitionConfig(conf configs
 }
 
 // If there is a new tenant's name in the new submitted application, add the username to the fairnessmanager
-func (fairnessManager *FairnessManager) ParseUserInApp(app *objects.Application) {
+func (fairnessManager *FairnessManager) ParseUserInApp(app *objects.Application, allocationKey string) {
 	fairnessManager.Lock()
 	defer fairnessManager.Unlock()
-	appID, user, _ := parser.ParseApp(app)
-	fairnessManager.GetTenants().AddUser(user)
-	unscheduledApps := fairnessManager.GetTenants().GetUser(user).GetUnScheduledApps()
-	newApp := apps.NewApp(appID, app.SubmissionTime)
+	appID, username := parser.ParseAppWithoutResource(app)
+	tenants := fairnessManager.GetTenants()
+	tenants.AddUser(username)
+	user := tenants.GetUser(username)
+	unscheduledApps := user.GetUnScheduledApps()
+	newApp := apps.NewApp(appID, app.SubmissionTime, allocationKey)
 	heap.Push(unscheduledApps, newApp)
-	log.Log(log.Custom).Info("Add application in fair manager", zap.String("user", user), zap.String("applicationID", appID), zap.Int("heap", unscheduledApps.Len()))
+	log.Log(log.Custom).Info("Add application in fair manager", zap.String("user", username), zap.String("applicationID", appID), zap.Int("heap", unscheduledApps.Len()))
 }

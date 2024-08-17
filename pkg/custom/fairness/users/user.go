@@ -13,7 +13,7 @@ import (
 
 type User struct{
 	unScheduledApps *apps.Apps 
-	completedApps map[string]bool 
+	currConsumeResource *resources.Resource
 	appsRequestResource map[string]*resources.Resource
 	sync.RWMutex
 }
@@ -21,7 +21,7 @@ type User struct{
 func NewUser() *User{
 	return &User{
 		unScheduledApps: apps.NewApps(),
-		completedApps: make(map[string]bool),
+		currConsumeResource: resources.NewResource(),
 		appsRequestResource: make(map[string]*resources.Resource, 0),
 	}
 }
@@ -33,28 +33,15 @@ func (user* User) GetUnScheduledApps() *apps.Apps {
 	return user.unScheduledApps
 }
 
-
-
 func (user *User) GetDRS(clusterResource *resources.Resource) (dominantResourceShare float64, dominantResourcesType string){  // DRS stand for dominant resource share
 	user.Lock()
 	defer user.Unlock()
 	resourceTypes := []string{sicommon.CPU, sicommon.Memory}
-	userResources :=  make(map[string]float64) 
-	// init
-	for _, resourceType := range resourceTypes{
-		userResources[resourceType] = 0.0
-	}
-	// sum up
-	for _, resource := range user.appsRequestResource{
-		for _, resourceType := range resourceTypes{
-			userResources[resourceType] += float64(resource.Resources[resourceType]) 
-		}
-	}
 	// compute dominant resource
 	dominantResourceShare = 0.0
 	dominantResourcesType = sicommon.CPU
 	for _, resourceType := range resourceTypes{
-		curResourceShare := userResources[resourceType] / float64(clusterResource.Resources[resourceType])
+		curResourceShare := float64(user.currConsumeResource.Resources[resourceType]) / float64(clusterResource.Resources[resourceType])
 		if curResourceShare > dominantResourceShare {
 			dominantResourcesType = resourceType
 			dominantResourceShare = curResourceShare
@@ -70,16 +57,12 @@ func (user *User) Allocate(appID string, requestResource *resources.Resource){
 	if _, exist := user.appsRequestResource[appID]; !exist {
 		user.appsRequestResource[appID] = requestResource.Clone()
 	}
+	user.currConsumeResource.AddTo(requestResource)
 }
 
 func (user *User) Release(appID string){
 	user.Lock()
 	defer user.Unlock()
 	log.Log(log.Custom).Info(fmt.Sprintf("app release, id:%v", appID))
-	if _, exist := user.appsRequestResource[appID]; exist {
-		delete(user.appsRequestResource, appID)
-		user.completedApps[appID] = true
-	} else {
-		user.completedApps[appID] = false
-	}
+	user.currConsumeResource.SubFrom(user.appsRequestResource[appID])
 }

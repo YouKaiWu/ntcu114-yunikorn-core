@@ -14,13 +14,13 @@ import (
 
 
 
-func (fairnessManager *FairnessManager) UpdateScheduledApp(app *objects.Application) {
+func (fairnessManager *FairnessManager) UpdateScheduledApp(app *objects.Application, allocationKey string) {
 	fairnessManager.Lock()
 	defer fairnessManager.Unlock()
-	appID, username, requestResource := parser.ParseApp(app)
-	fairnessManager.scheduledApps[appID] = true
+	appID, username, requestResource := parser.ParseApp(app, allocationKey)
 	user := fairnessManager.GetTenants().GetUser(username)
 	user.Allocate(appID, requestResource)
+	
 
 	if unScheduledApps := user.GetUnScheduledApps(); unScheduledApps.Len() == 0 {
 		log.Log(log.Custom).Error("Non existed app update", zap.String("app", appID), zap.String("user", username))
@@ -29,15 +29,12 @@ func (fairnessManager *FairnessManager) UpdateScheduledApp(app *objects.Applicat
 		for unScheduledApps.Len() > 0 {
 			app := heap.Pop(unScheduledApps).(*apps.App)
 			id := app.Id
-			if _, exist := fairnessManager.scheduledApps[id]; !exist {
-				log.Log(log.Custom).Info("Delete app is not in the heap", zap.String("appid", id))
+			if app.AllocationKey != allocationKey{
 				remainingApps = append(remainingApps, app)
 			} else {
-				delete(fairnessManager.scheduledApps, id)
 				log.Log(log.Custom).Info("Delete app", zap.String("appid", id), zap.Int("heap", unScheduledApps.Len()))
 			}
 		}
-
 		for _, element := range remainingApps {
 			heap.Push(unScheduledApps, element)
 		}
