@@ -27,6 +27,7 @@ func (fairnessManager *FairnessManager) ParseUserInApp(app *objects.Application,
 	appID, username := parser.ParseAppWithoutResource(app)
 	tenants := fairnessManager.GetTenants()
 	tenants.AddUser(username)
+	fairnessManager.tenantsMonitor.AddUser(username)
 	user := tenants.GetUser(username)
 	unscheduledApps := user.GetUnScheduledApps()
 	newApp := apps.NewApp(appID, app.SubmissionTime, allocationKey)

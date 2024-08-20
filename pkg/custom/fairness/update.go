@@ -6,13 +6,12 @@ import (
 	"github.com/apache/yunikorn-core/pkg/custom/parser"
 	"github.com/apache/yunikorn-core/pkg/log"
 	"github.com/apache/yunikorn-core/pkg/scheduler/objects"
-	
+
 	// "fmt"
 	"container/heap"
 	"go.uber.org/zap"
+	"time"
 )
-
-
 
 func (fairnessManager *FairnessManager) UpdateScheduledApp(app *objects.Application, allocationKey string) {
 	fairnessManager.Lock()
@@ -20,7 +19,7 @@ func (fairnessManager *FairnessManager) UpdateScheduledApp(app *objects.Applicat
 	appID, username, requestResource := parser.ParseApp(app, allocationKey)
 	user := fairnessManager.GetTenants().GetUser(username)
 	user.Allocate(appID, requestResource)
-	
+	fairnessManager.tenantsMonitor.Record(time.Now(), fairnessManager.tenants, fairnessManager.clusterResources.Clone())
 
 	if unScheduledApps := user.GetUnScheduledApps(); unScheduledApps.Len() == 0 {
 		log.Log(log.Custom).Error("Non existed app update", zap.String("app", appID), zap.String("user", username))
@@ -29,7 +28,7 @@ func (fairnessManager *FairnessManager) UpdateScheduledApp(app *objects.Applicat
 		for unScheduledApps.Len() > 0 {
 			app := heap.Pop(unScheduledApps).(*apps.App)
 			id := app.Id
-			if app.AllocationKey != allocationKey{
+			if app.AllocationKey != allocationKey {
 				remainingApps = append(remainingApps, app)
 			} else {
 				log.Log(log.Custom).Info("Delete app", zap.String("appid", id), zap.Int("heap", unScheduledApps.Len()))
@@ -72,4 +71,5 @@ func (fairnessManager *FairnessManager) AddCompletedApp(appID string, username s
 	// log.Log(log.Custom).Info(fmt.Sprintf("app complete, appId:%v", appID))
 	user := fairnessManager.GetTenants().GetUser(username)
 	user.Release(appID)
+	fairnessManager.tenantsMonitor.Record(time.Now(), fairnessManager.tenants, fairnessManager.clusterResources.Clone())
 }
