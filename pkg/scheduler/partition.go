@@ -1249,7 +1249,6 @@ func (pc *PartitionContext) removeAllocation(release *si.AllocationRelease) ([]*
 	appID := release.ApplicationID
 	allocationID := release.GetAllocationID()
 	app := pc.getApplication(appID)
-	// custom.GetFairnessManager().AddCompletedApp(appID, app.GetUser().User)
 	// no app nothing to do everything should already be clean
 	if app == nil {
 		log.Log(log.SchedPartition).Info("Application not found while releasing allocation",
@@ -1350,7 +1349,8 @@ func (pc *PartitionContext) removeAllocation(release *si.AllocationRelease) ([]*
 			total.AddTo(alloc.GetAllocatedResource())
 			log.Log(log.SchedPartition).Info("removing allocation from node",
 				zap.String("nodeID", alloc.GetNodeID()),
-				zap.String("allocationID", alloc.GetAllocationID()))
+				zap.String("allocationID", alloc.GetAllocationID()))	
+			custom.GetFairnessManager().AddCompletedApp(alloc.GetApplicationID(), pc.GetApplication(alloc.GetApplicationID()).GetUser().User)
 		}
 		if alloc.IsPreempted() {
 			totalPreempting.AddTo(alloc.GetAllocatedResource())
@@ -1410,7 +1410,6 @@ func (pc *PartitionContext) removeAllocationAsk(release *si.AllocationAskRelease
 			zap.Stringer("terminationType", release.TerminationType))
 		return
 	}
-	custom.GetFairnessManager().AddCompletedApp(app.ApplicationID, app.GetUser().User)
 	// remove the allocation asks from the app
 	_ = app.RemoveAllocationAsk(allocKey)
 }
@@ -1465,7 +1464,6 @@ func (pc *PartitionContext) moveTerminatedApp(appID string) {
 			zap.String("appID", appID))
 		return
 	}
-	// custom.GetFairnessManager().AddCompletedApp(appID, app.GetUser().User)
 	app.UnSetQueue()
 	// new ID as completedApplications map key, use negative value to get a divider
 	newID := appID + strconv.FormatInt(-(time.Now()).Unix(), 10)
