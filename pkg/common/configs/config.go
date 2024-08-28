@@ -208,4 +208,8 @@ partitions:
     queues:
       - name: root
         submitacl: '*'
+        queues:
+        - name: testjob
+          properties:
+            application.sort.policy: fair
 `
