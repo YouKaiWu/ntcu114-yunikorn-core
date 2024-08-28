@@ -6,8 +6,8 @@ import (
 	"math"
 )
 
-
-func getDominantLoad(availResource, capResource *resources.Resource, resourceTypes []string) float64 {
+// dominant load means the most stressed resource in the node
+func getDominantLoad(availResource, capResource *resources.Resource, resourceTypes []string) float64 { 
 	dominantLoad := 0.0
 	for _, resourceType := range resourceTypes {
 		usage := float64(capResource.Resources[resourceType] - availResource.Resources[resourceType]) / float64(capResource.Resources[resourceType])
