@@ -178,7 +178,6 @@ func (cc *ClusterContext) normalScheduleWithMonitor() bool {
 			}
 		}
 		if alloc != nil {
-			log.Log(log.Custom).Info(fmt.Sprintf("updatedApp: %v", alloc.GetApplicationID()))
 			custom.GetFairnessManager().UpdateScheduledApp(psc.getApplication(alloc.GetApplicationID()), alloc.GetAllocationKey())
 			custom.GetLoadBalanceManager().UpdateNodes()
 			metrics.GetSchedulerMetrics().ObserveSchedulingLatency(schedulingStart)
