@@ -212,4 +212,6 @@ partitions:
         - name: testjob
           properties:
             application.sort.policy: fair
+    nodesortpolicy:
+        type: binpacking
 `
