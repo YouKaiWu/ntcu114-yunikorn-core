@@ -550,7 +550,7 @@ func (pc *PartitionContext) AddNode(node *objects.Node, existingAllocations []*o
 		return err
 	}
 	custom.GetFairnessManager().AddNode(node.NodeID, node.GetCapacity())
-	custom.GetLoadBalanceManager().GetNodes().AddNode(node);
+	custom.GetLoadBalanceManager().AddNode(node)
 	// Add allocations that exist on the node when added
 	if len(existingAllocations) > 0 {
 		for current, alloc := range existingAllocations {
@@ -1351,6 +1351,7 @@ func (pc *PartitionContext) removeAllocation(release *si.AllocationRelease) ([]*
 				zap.String("nodeID", alloc.GetNodeID()),
 				zap.String("allocationID", alloc.GetAllocationID()))	
 			custom.GetFairnessManager().AddCompletedApp(alloc.GetApplicationID(), pc.GetApplication(alloc.GetApplicationID()).GetUser().User)
+			custom.GetLoadBalanceManager().UpdateNodes()
 		}
 		if alloc.IsPreempted() {
 			totalPreempting.AddTo(alloc.GetAllocatedResource())

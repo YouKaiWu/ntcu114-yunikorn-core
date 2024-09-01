@@ -16,10 +16,8 @@ func NewNodes() *Nodes{
 }
 
 func (nodes *Nodes) AddNode(node *objects.Node){
-	if node.GetAttribute("Taints") == "false"{
-		*nodes = append(*nodes, node);
-		log.Log(log.Custom).Info(fmt.Sprintf("custom add node: %v", node.NodeID));
-	}
+	*nodes = append(*nodes, node);
+	log.Log(log.Custom).Info(fmt.Sprintf("custom add node: %v", node.NodeID));
 	// log.Log(log.Custom).Info(fmt.Sprintf("cur node: %v", node.NodeID));
 	// for key, val := range node.GetAttributes(){
 	// 	log.Log(log.Custom).Info(fmt.Sprintf("key:%v, val: %v", key, val))

@@ -139,8 +139,8 @@ func (cc *ClusterContext) customSchedule() bool {
 				alloc = app.TrySelectedNode(allocationKey, selectedNode, psc.GetNode)
 			}
 			if alloc != nil {
-				log.Log(log.Custom).Info(fmt.Sprintf("updatedApp: %v", alloc.GetApplicationID()))
 				custom.GetFairnessManager().UpdateScheduledApp(app, alloc.GetAllocationKey())
+				custom.GetLoadBalanceManager().UpdateNodes()
 				metrics.GetSchedulerMetrics().ObserveSchedulingLatency(schedulingStart)
 				if alloc.GetResult() == objects.Replaced {
 					// communicate the removal to the RM
@@ -181,6 +181,7 @@ func (cc *ClusterContext) normalScheduleWithMonitor() bool {
 		if alloc != nil {
 			log.Log(log.Custom).Info(fmt.Sprintf("updatedApp: %v", alloc.GetApplicationID()))
 			custom.GetFairnessManager().UpdateScheduledApp(psc.getApplication(alloc.GetApplicationID()), alloc.GetAllocationKey())
+			custom.GetLoadBalanceManager().UpdateNodes()
 			metrics.GetSchedulerMetrics().ObserveSchedulingLatency(schedulingStart)
 			if alloc.GetResult() == objects.Replaced {
 				// communicate the removal to the RM
