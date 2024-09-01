@@ -135,7 +135,6 @@ func (cc *ClusterContext) customSchedule() bool {
 				if selectedNode == ""{
 					continue
 				}
-				log.Log(log.Custom).Info(fmt.Sprintf("current schedule appid:%v", appID))
 				alloc = app.TrySelectedNode(allocationKey, selectedNode, psc.GetNode)
 			}
 			if alloc != nil {
