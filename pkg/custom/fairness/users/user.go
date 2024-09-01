@@ -33,6 +33,21 @@ func (user* User) GetUnScheduledApps() *apps.Apps {
 	return user.unScheduledApps
 }
 
+func (user *User) GetCPUUsage(clusterResource *resources.Resource) float64{ 
+	user.Lock()
+	defer user.Unlock()
+	CPUUsage := float64(user.currConsumeResource.Resources[sicommon.CPU]) / float64(clusterResource.Resources[sicommon.CPU])
+	return CPUUsage
+}
+
+
+func (user *User) GetMemoryUsage(clusterResource *resources.Resource) float64{ 
+	user.Lock()
+	defer user.Unlock()
+	memoryUsage := float64(user.currConsumeResource.Resources[sicommon.Memory]) / float64(clusterResource.Resources[sicommon.Memory])
+	return memoryUsage
+}
+
 func (user *User) GetDRS(clusterResource *resources.Resource) (dominantResourceShare float64, dominantResourcesType string){  // DRS stand for dominant resource share
 	user.Lock()
 	defer user.Unlock()

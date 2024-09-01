@@ -1,6 +1,8 @@
 package fairness
 
 import (
+	"fmt"
+
 	"github.com/apache/yunikorn-core/pkg/common/resources"
 	"github.com/apache/yunikorn-core/pkg/custom/fairness/apps"
 	"github.com/apache/yunikorn-core/pkg/custom/parser"
@@ -9,8 +11,9 @@ import (
 
 	// "fmt"
 	"container/heap"
-	"go.uber.org/zap"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 func (fairnessManager *FairnessManager) UpdateScheduledApp(app *objects.Application, allocationKey string) {
@@ -18,6 +21,8 @@ func (fairnessManager *FairnessManager) UpdateScheduledApp(app *objects.Applicat
 	defer fairnessManager.Unlock()
 	appID, username, requestResource := parser.ParseApp(app, allocationKey)
 	user := fairnessManager.GetTenants().GetUser(username)
+	dominantResourceShare, dominantResourceType := user.GetDRS(fairnessManager.clusterResources.Clone())
+	log.Log(log.Custom).Info(fmt.Sprintf("updated application:[appID: %v, username: %v, dominantResourceShare: %v, dominantResourceType: %v]", appID, username, dominantResourceShare, dominantResourceType))
 	user.Allocate(appID, requestResource)
 	fairnessManager.tenantsMonitor.Record(time.Now(), fairnessManager.tenants, fairnessManager.clusterResources.Clone())
 
@@ -72,4 +77,8 @@ func (fairnessManager *FairnessManager) AddCompletedApp(appID string, username s
 	user := fairnessManager.GetTenants().GetUser(username)
 	user.Release(appID)
 	fairnessManager.tenantsMonitor.Record(time.Now(), fairnessManager.tenants, fairnessManager.clusterResources.Clone())
+}
+
+func (fairnessManager *FairnessManager) SaveExcelFile(){
+	fairnessManager.tenantsMonitor.Save()
 }

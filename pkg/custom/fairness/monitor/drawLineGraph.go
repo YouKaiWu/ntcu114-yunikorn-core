@@ -7,14 +7,14 @@ import (
 )
 
 // GenerateChartSeries generates the chart series format for tenants
-func (tenantsMonitor *TenantsMonitor) GenerateChartSeries() []excelize.ChartSeries {
+func (tenantsMonitor *TenantsMonitor) GenerateChartSeries(sheetName string) []excelize.ChartSeries {
 	var series []excelize.ChartSeries
 	// Generate series for each tenant
 	for _, colIdx := range tenantsMonitor.tenantsList {
 		series = append(series, excelize.ChartSeries{
-			Name:       fmt.Sprintf("log!$%s$1", colToLetter(colIdx)),                                           // Name of the tenant
-			Categories: fmt.Sprintf("log!$A$2:$A$%d", tenantsMonitor.currRow-1),                                             // Time range (X-axis)
-			Values:     fmt.Sprintf("log!$%s$2:$%s$%d", colToLetter(colIdx), colToLetter(colIdx), tenantsMonitor.currRow-1), // Tenant data range (Y-axis)
+			Name:       fmt.Sprintf(sheetName+"!$%s$1", colToLetter(colIdx)),                                                       // Name of the tenant
+			Categories: fmt.Sprintf(sheetName+"!$A$2:$A$%d", tenantsMonitor.currRow-1),                                             // Time range (X-axis)
+			Values:     fmt.Sprintf(sheetName+"!$%s$2:$%s$%d", colToLetter(colIdx), colToLetter(colIdx), tenantsMonitor.currRow-1), // Tenant data range (Y-axis)
 		})
 	}
 	return series
@@ -31,13 +31,13 @@ func colToLetter(colIdx int) string {
 	return result
 }
 
-func (tenantsMonitor *TenantsMonitor) createGraph() {
-	if err := tenantsMonitor.excelFile.AddChart("Sheet1", "A1", &excelize.Chart{
-		Type: excelize.Line,
-		Series: tenantsMonitor.GenerateChartSeries(),
+func (tenantsMonitor *TenantsMonitor) createGraph(sheetName string) {
+	if err := tenantsMonitor.excelFile.AddChart(sheetName, "I3", &excelize.Chart{
+		Type:   excelize.Line,
+		Series: tenantsMonitor.GenerateChartSeries(sheetName),
 		Title: []excelize.RichTextRun{
 			{
-				Text: "User Resource Usage Over Time",
+				Text: "User " + sheetName + " Usage Over Time",
 			},
 		},
 		XAxis: excelize.ChartAxis{
@@ -52,7 +52,7 @@ func (tenantsMonitor *TenantsMonitor) createGraph() {
 			MajorGridLines: true,
 			Title: []excelize.RichTextRun{
 				{
-					Text: "Donimant Resource Usage",
+					Text: sheetName + " Usage",
 				},
 			},
 		},

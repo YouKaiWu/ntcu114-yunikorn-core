@@ -48,7 +48,3 @@ func (fairnessManager *FairnessManager) NextAppToSchedule() (appId string, alloc
 	heap.Push(unScheduledApps, targetApp)
 	return targetApp.Id, targetApp.AllocationKey
 }
-
-func (fairnessManager *FairnessManager) SaveExcelFile(){
-	fairnessManager.tenantsMonitor.Save()
-}

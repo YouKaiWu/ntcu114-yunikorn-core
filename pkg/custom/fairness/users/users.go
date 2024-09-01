@@ -2,10 +2,10 @@ package users
 
 import (
 	"github.com/apache/yunikorn-core/pkg/common/resources"
-	"github.com/apache/yunikorn-core/pkg/log"
+	// "github.com/apache/yunikorn-core/pkg/log"
 
 	"container/heap"
-	"fmt"
+	// "fmt"
 	"sync"
 )
 
@@ -49,11 +49,11 @@ func (users *Users) GetMinDRSUser(clusterResource *resources.Resource) string { 
 	for usersHeap.Len() > 0 {
 		curUserInfo := heap.Pop(usersHeap).(*UserInfo)
 		curUsername := curUserInfo.username
-		curDRS := curUserInfo.dominantResourceShare
-		curDominantResourceType := curUserInfo.dominantResourceType
+		// curDRS := curUserInfo.dominantResourceShare
+		// curDominantResourceType := curUserInfo.dominantResourceType
 		curUser := users.users[curUsername]
 		if curUser.unScheduledApps.Len() > 0 {
-			log.Log(log.Custom).Info(fmt.Sprintf("minUser:%v, dominantResourceShare: %v, resourceType: %v", curUsername, curDRS, curDominantResourceType))
+			// log.Log(log.Custom).Info(fmt.Sprintf("minUser:%v, dominantResourceShare: %v, resourceType: %v", curUsername, curDRS, curDominantResourceType))
 			return curUsername
 		}
 	}
