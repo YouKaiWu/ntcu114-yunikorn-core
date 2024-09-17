@@ -56,6 +56,7 @@ func (tenantsMonitor *TenantsMonitor) createGraph(sheetName string) {
 				},
 			},
 		},
+		Dimension: excelize.ChartDimension{Width: 800, Height: 600},  
 	}); err != nil {
 		log.Log(log.Custom).Info("create graph error occur")
 		return
