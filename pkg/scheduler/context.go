@@ -130,7 +130,7 @@ func (cc *ClusterContext) customSchedule() bool {
 		appID, allocationKey := custom.GetFairnessManager().NextAppToSchedule()
 		if app := psc.getApplication(appID); app != nil{
 			var alloc *objects.Allocation
-			if app.GetAllRequests() != nil{
+			if app.GetAllocationAsk(allocationKey) != nil{
 				selectedNode := custom.GetLoadBalanceManager().SelectNode(app, allocationKey)
 				if selectedNode == ""{
 					continue

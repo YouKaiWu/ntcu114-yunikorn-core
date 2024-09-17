@@ -934,12 +934,21 @@ func (sa *Application) canReplace(request *AllocationAsk) bool {
 	return false
 }
 
-// TrySelectedNode will make all request to selected node
+// TrySelectedNode will make specific  request to selected node
 func (sa *Application) TrySelectedNode(allocationKey string, selectedNode string, getNodeFn func(string) *Node) *Allocation {
 	sa.Lock()
 	defer sa.Unlock()
-	// sa.GetAllocationAsk(allocationKey)
 	request := sa.requests[allocationKey]
+	if request == nil{
+		return nil
+	}
+	if request.GetPendingAskRepeat() == 0 {
+		return nil
+	}
+	// check if there is a replacement possible
+	if sa.canReplace(request) {
+		return nil
+	}
 	// does request have any constraint to run on specific node?
 	if selectedNode != "" {
 		// the iterator might not have the node we need as it could be reserved, or we have not added it yet
