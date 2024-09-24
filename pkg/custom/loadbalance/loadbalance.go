@@ -23,9 +23,11 @@ func NewLoadBalanceManager() *LoadbalanceManager{
 	}
 }	
 
-func (loadbalanceManager *LoadbalanceManager) SelectNode(app *objects.Application, allocationKey string) string{
-	_, _, requestResource := parser.ParseApp(app, allocationKey)
-	fitInNodes := loadbalanceManager.nodes.GetFitInNodes(requestResource)
+func (loadbalanceManager *LoadbalanceManager) SelectNode(request *objects.AllocationAsk) string{
+	_, requestResource := parser.ParseRequestInfo(request)
+	tmp := requestResource.Clone()
+	tmp.MultiplyTo(1.5) // multiply 1.5 times to avoid oomkilled
+	fitInNodes := loadbalanceManager.nodes.GetFitInNodes(tmp)
 	if len(fitInNodes) == 0 {
 		return ""
 	}
