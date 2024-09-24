@@ -36,6 +36,7 @@ func (fairnessManager *FairnessManager) UpdateScheduledRequest(request *objects.
 	defer fairnessManager.Unlock()
 	appID, requestResource := parser.ParseRequestInfo(request)
 	user := fairnessManager.GetTenants().GetUser(username)
+	user.AddWaitTime(request.GetCreateTime())
 	dominantResourceShare, dominantResourceType := user.GetDRS(fairnessManager.clusterResources.Clone())
 	log.Log(log.Custom).Info(fmt.Sprintf("updated application:[appID: %v, username: %v, dominantResourceShare: %v, dominantResourceType: %v]", appID, username, dominantResourceShare, dominantResourceType))
 	user.Allocate(appID, requestResource)
@@ -99,5 +100,5 @@ func (fairnessManager *FairnessManager) RemoveNode(nodeID string) {
 // process excel file
 
 func (fairnessManager *FairnessManager) SaveExcelFile(){
-	fairnessManager.tenantsMonitor.Save()
+	fairnessManager.tenantsMonitor.Save(fairnessManager.GetTenants())
 }

@@ -3,17 +3,21 @@ package users
 import (
 	"github.com/apache/yunikorn-core/pkg/common/resources"
 	"github.com/apache/yunikorn-core/pkg/custom/fairness/requests"
+	"github.com/apache/yunikorn-core/pkg/custom/parser"
 	"github.com/apache/yunikorn-core/pkg/log"
 	"github.com/apache/yunikorn-core/pkg/scheduler/objects"
 
 	sicommon "github.com/apache/yunikorn-scheduler-interface/lib/go/common"
-	
+
 	"fmt"
 	"sync"
+	"time"
 	"container/heap"
 )
 
 type User struct{
+	totalWaitTime time.Duration // total wait time of all request
+	completedRequestCnt int
 	unScheduledRequests *requests.Requests 
 	currConsumeResource *resources.Resource
 	waitResource *resources.Resource
@@ -23,6 +27,7 @@ type User struct{
 
 func NewUser() *User{
 	return &User{
+		completedRequestCnt: 0,
 		unScheduledRequests: requests.NewRequests(),
 		currConsumeResource: resources.NewResource(),
 		waitResource: resources.NewResource(),
@@ -33,6 +38,12 @@ func NewUser() *User{
 func (user* User) AddRequest(request *objects.AllocationAsk){
 	newRequest := requests.NewRequest(request.GetApplicationID(), request.GetCreateTime(), request.GetAllocationKey())
 	heap.Push(user.unScheduledRequests, newRequest)
+	_, requestResource := parser.ParseRequestInfo(request)
+	user.waitResource.AddTo(requestResource)
+	// log.Log(log.Custom).Info("waitresource update")
+	// for _, rType := range parser.ResourceType{
+	// 	log.Log(log.Custom).Info(fmt.Sprintf("resourceType: %v, quantity: %v", rType, user.waitResource.Resources[rType]))
+	// }
 }
 
 func (user* User) GetunScheduledRequests() *requests.Requests {
@@ -74,23 +85,34 @@ func (user *User) GetDRS(clusterResource *resources.Resource) (dominantResourceS
 	return 
 }
 
-// TODO
 // get current demand(waiting queue) dominant resource share
-func (user *User) GetDDRS(clusterResource *resources.Resource) (dominantResourceShare float64, dominantResourcesType string){
+func (user *User) GetDDRS(clusterResource *resources.Resource) (demandDominantResourceShare float64, demandDominantResourcesType string){
 	user.Lock()
 	defer user.Unlock()
 	resourceTypes := []string{sicommon.CPU, sicommon.Memory}
 	// compute dominant resource
-	dominantResourceShare = 0.0
-	dominantResourcesType = sicommon.CPU
+	demandDominantResourceShare = 0.0
+	demandDominantResourcesType = sicommon.CPU
 	for _, resourceType := range resourceTypes{
 		curResourceShare := float64(user.waitResource.Resources[resourceType]) / float64(clusterResource.Resources[resourceType])
-		if curResourceShare > dominantResourceShare {
-			dominantResourcesType = resourceType
-			dominantResourceShare = curResourceShare
+		if curResourceShare > demandDominantResourceShare {
+			demandDominantResourcesType = resourceType
+			demandDominantResourceShare = curResourceShare
 		}
 	}
 	return 
+}
+
+func (user *User) AddWaitTime(createTime time.Time){
+	user.totalWaitTime += time.Since(createTime)
+}
+
+func (user *User) GetWaitTime() time.Duration{
+	return user.totalWaitTime
+}
+
+func (user *User) GetCompletedRequestCnt() int{
+	return user.completedRequestCnt
 }
 
 func (user *User) Allocate(appID string, requestResource *resources.Resource){
@@ -108,5 +130,6 @@ func (user *User) Release(appID string){
 	user.Lock()
 	defer user.Unlock()
 	log.Log(log.Custom).Info(fmt.Sprintf("request release, appID:%v", appID))
+	user.completedRequestCnt++
 	user.currConsumeResource.SubFrom(user.appsRequestResource[appID])
 }

@@ -34,7 +34,8 @@ func (users *Users) AddUser(username string) {
 	}
 }
 
-func (users *Users) GetMinDRSUser(clusterResource *resources.Resource) string {  // DRS stand for dominant resource share
+// DRS stand for dominant resource share
+func (users *Users) GetMinDRSUser(clusterResource *resources.Resource) string {  
 	users.Lock()
 	defer users.Unlock()
 	if len(users.users) == 0 {
@@ -54,6 +55,32 @@ func (users *Users) GetMinDRSUser(clusterResource *resources.Resource) string { 
 		curUser := users.users[curUsername]
 		if curUser.unScheduledRequests.Len() > 0 {
 			// log.Log(log.Custom).Info(fmt.Sprintf("minUser:%v, dominantResourceShare: %v, resourceType: %v", curUsername, curDRS, curDominantResourceType))
+			return curUsername
+		}
+	}
+	return ""
+}
+
+// cosidering DRS and DDRS
+func (users *Users) GetMinEval(clusterResource *resources.Resource) string {  
+	users.Lock()
+	defer users.Unlock()
+	if len(users.users) == 0 {
+		return ""
+	}
+	usersHeap := NewUsersHeap()
+	for username, user := range users.users {
+		DRS, DRType := user.GetDRS(clusterResource)
+		DDRS, _ := user.GetDDRS(clusterResource)
+		eval := 0.8 * DRS + 0.2 * DDRS
+		userInfo := NewUserInfo(username, eval, DRType)
+		heap.Push(usersHeap, userInfo)
+	}
+	for usersHeap.Len() > 0 {
+		curUserInfo := heap.Pop(usersHeap).(*UserInfo)
+		curUsername := curUserInfo.username
+		curUser := users.users[curUsername]
+		if curUser.unScheduledRequests.Len() > 0 {
 			return curUsername
 		}
 	}

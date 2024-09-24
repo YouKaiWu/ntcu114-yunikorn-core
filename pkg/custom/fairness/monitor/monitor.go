@@ -29,6 +29,7 @@ func NewTenantsMonitor() *TenantsMonitor {
 	tmp.sheetIdxes["CPU"], _ = tmp.excelFile.NewSheet("CPU")
 	tmp.sheetIdxes["Memory"], _ = tmp.excelFile.NewSheet("Memory")
 	tmp.sheetIdxes["DR"], _ = tmp.excelFile.NewSheet("DR")
+	tmp.sheetIdxes["WaitTime"], _ = tmp.excelFile.NewSheet("WaitTime")
 	tmp.excelFile.SetActiveSheet(tmp.sheetIdxes["DR"])
 	// 删除預設的 Sheet1
 	if err := tmp.excelFile.DeleteSheet("Sheet1"); err != nil {
@@ -128,11 +129,69 @@ func (tenantsMonitor *TenantsMonitor) recordDR(timestamp time.Time, tenants *use
 	}
 }
 
-func (tenantsMonitor *TenantsMonitor) Save() {
-	for sheetName := range tenantsMonitor.sheetIdxes {
-		tenantsMonitor.saveNameRow(sheetName)
-		tenantsMonitor.createGraph(sheetName)
+
+func (tenantsMonitor *TenantsMonitor) recordWaitTime(tenants *users.Users) { // record wait time
+	cell, err := excelize.CoordinatesToCellName(1, 1)
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
+	tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "username")
+	// save user name 
+	for username, colIdx := range tenantsMonitor.tenantsList {
+		cell, err := excelize.CoordinatesToCellName(colIdx, 1)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, username)
+	}
+	// save user total Wait Time
+	cell, err = excelize.CoordinatesToCellName(1, 2)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "totalWaitTime")
+	for username, colIdx := range tenantsMonitor.tenantsList {
+		user := tenants.GetUser(username)
+		totalWaitTime := user.GetWaitTime()
+		cell, err := excelize.CoordinatesToCellName(colIdx, 2)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, totalWaitTime.Seconds())
+	}
+	// save user average Wait Time
+	cell, err = excelize.CoordinatesToCellName(1, 3)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "averageWaitTime")
+	for username, colIdx := range tenantsMonitor.tenantsList {
+		user := tenants.GetUser(username)
+		totalWaitTime := user.GetWaitTime()
+		cell, err := excelize.CoordinatesToCellName(colIdx, 3)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, totalWaitTime.Seconds() / float64(user.GetCompletedRequestCnt()))
+	}
+}
+
+func (tenantsMonitor *TenantsMonitor) Save(tenants *users.Users) {
+	for sheetName := range tenantsMonitor.sheetIdxes {
+		if sheetName != "WaitTime"{
+			tenantsMonitor.saveNameRow(sheetName)
+			tenantsMonitor.createLineChart(sheetName)
+		}
+	}
+	tenantsMonitor.recordWaitTime(tenants)
+	tenantsMonitor.createTotalWaitTimeBarChart("WaitTime")
+	tenantsMonitor.createAvgWaitTimeBarChart("WaitTime")
 	if err := tenantsMonitor.excelFile.SaveAs("tenantsResourceRecord.xlsx"); err != nil {
 		log.Log(log.Custom).Info("tenantsResourceRecord excel file saved err occur")
 		log.Log(log.Custom).Info(fmt.Sprintf("%v", err))
