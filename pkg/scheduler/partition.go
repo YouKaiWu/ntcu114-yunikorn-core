@@ -1426,9 +1426,10 @@ func (pc *PartitionContext) addAllocationAsk(siAsk *si.AllocationAsk) error {
 	}
 	// log.Log(log.Custom).Info(fmt.Sprintf("app add allocation ask appid:%v", app.ApplicationID))
 	request := objects.NewAllocationAskFromSI(siAsk)
+	err := app.AddAllocationAsk(request)
 	custom.GetFairnessManager().ParseRequest(request, app.GetUser().User)
 	// add the allocation asks to the app
-	return app.AddAllocationAsk(request)
+	return err
 }
 
 func (pc *PartitionContext) GetCurrentState() string {
