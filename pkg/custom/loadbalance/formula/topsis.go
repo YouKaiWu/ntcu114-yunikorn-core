@@ -3,12 +3,12 @@ package formula
 import (
 	"github.com/apache/yunikorn-core/pkg/common/resources"
 	"github.com/apache/yunikorn-core/pkg/custom/loadbalance/nodes"
-	"github.com/apache/yunikorn-core/pkg/log"
+	// "github.com/apache/yunikorn-core/pkg/log"
 	// "go.uber.org/zap"
 
 	sicommon "github.com/apache/yunikorn-scheduler-interface/lib/go/common"
 
-	"fmt"
+	// "fmt"
 	"math"
 )
 
@@ -82,7 +82,7 @@ func TOPSIS(reqestResource *resources.Resource, nodes nodes.Nodes) string {
 	}
 
 	selectedNode := getNodeId(RCVals, nodesIdx);
-	log.Log(log.Custom).Info(fmt.Sprintf("selectedNode: %v", selectedNode))
+	// log.Log(log.Custom).Info(fmt.Sprintf("selectedNode: %v", selectedNode))
 	return selectedNode
 }
 
