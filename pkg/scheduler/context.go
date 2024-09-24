@@ -127,18 +127,18 @@ func (cc *ClusterContext) customSchedule() bool {
 			continue
 		}
 		schedulingStart := time.Now()
-		appID, allocationKey := custom.GetFairnessManager().NextAppToSchedule()
-		if app := psc.getApplication(appID); app != nil{
+		username, appID, allocationKey := custom.GetFairnessManager().NextAppToSchedule()
+		if app := psc.getApplication(appID); app != nil {
+			request := app.GetAllocationAsk(allocationKey)
 			var alloc *objects.Allocation
-			if app.GetAllocationAsk(allocationKey) != nil{
-				selectedNode := custom.GetLoadBalanceManager().SelectNode(app, allocationKey)
-				if selectedNode == ""{
-					continue
-				}
-				alloc = app.TrySelectedNode(allocationKey, selectedNode, psc.GetNode)
+			selectedNode := custom.GetLoadBalanceManager().SelectNode(request)
+			if selectedNode == "" {
+				continue
 			}
+			alloc = app.TrySelectedNode(allocationKey, selectedNode, psc.GetNode)
 			if alloc != nil {
-				custom.GetFairnessManager().UpdateScheduledApp(app, alloc.GetAllocationKey())
+				custom.GetFairnessManager().UpdateScheduledRequest(request, username)
+				log.Log(log.Custom).Info(fmt.Sprintf("request assigned to node: %v", alloc.GetNodeID()))
 				custom.GetLoadBalanceManager().UpdateNodes()
 				metrics.GetSchedulerMetrics().ObserveSchedulingLatency(schedulingStart)
 				if alloc.GetResult() == objects.Replaced {
@@ -149,7 +149,7 @@ func (cc *ClusterContext) customSchedule() bool {
 				}
 				activity = true
 			}
-		} 
+		}
 	}
 	return activity
 }
@@ -178,7 +178,8 @@ func (cc *ClusterContext) normalScheduleWithMonitor() bool {
 			}
 		}
 		if alloc != nil {
-			custom.GetFairnessManager().UpdateScheduledApp(psc.getApplication(alloc.GetApplicationID()), alloc.GetAllocationKey())
+			custom.GetFairnessManager().UpdateScheduledRequest(psc.getApplication(alloc.GetApplicationID()).GetAllocationAsk(alloc.GetAllocationKey()), alloc.GetAllocationKey())
+			log.Log(log.Custom).Info(fmt.Sprintf("assigned to node: %v", alloc.GetNodeID()))
 			custom.GetLoadBalanceManager().UpdateNodes()
 			metrics.GetSchedulerMetrics().ObserveSchedulingLatency(schedulingStart)
 			if alloc.GetResult() == objects.Replaced {
@@ -192,7 +193,6 @@ func (cc *ClusterContext) normalScheduleWithMonitor() bool {
 	}
 	return activity
 }
-
 
 // schedule is the main scheduling routine.
 // Process each partition in the scheduler, walk over each queue and app to check if anything can be scheduled.

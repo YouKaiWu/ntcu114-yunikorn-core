@@ -52,7 +52,7 @@ func (users *Users) GetMinDRSUser(clusterResource *resources.Resource) string { 
 		// curDRS := curUserInfo.dominantResourceShare
 		// curDominantResourceType := curUserInfo.dominantResourceType
 		curUser := users.users[curUsername]
-		if curUser.unScheduledApps.Len() > 0 {
+		if curUser.unScheduledRequests.Len() > 0 {
 			// log.Log(log.Custom).Info(fmt.Sprintf("minUser:%v, dominantResourceShare: %v, resourceType: %v", curUsername, curDRS, curDominantResourceType))
 			return curUsername
 		}

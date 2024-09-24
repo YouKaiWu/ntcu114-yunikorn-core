@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/apache/yunikorn-core/pkg/common/resources"
-	"github.com/apache/yunikorn-core/pkg/custom/fairness/apps"
+	"github.com/apache/yunikorn-core/pkg/custom/fairness/requests"
 	"github.com/apache/yunikorn-core/pkg/custom/parser"
 	"github.com/apache/yunikorn-core/pkg/log"
 	"github.com/apache/yunikorn-core/pkg/scheduler/objects"
@@ -16,34 +16,60 @@ import (
 	"go.uber.org/zap"
 )
 
-func (fairnessManager *FairnessManager) UpdateScheduledApp(app *objects.Application, allocationKey string) {
+// process request
+
+// parse new request info
+func (fairnessManager *FairnessManager) ParseRequest(request *objects.AllocationAsk, username string) {
 	fairnessManager.Lock()
 	defer fairnessManager.Unlock()
-	appID, username, requestResource := parser.ParseApp(app, allocationKey)
+	appID, _ := parser.ParseRequestInfo(request)
+	tenants := fairnessManager.GetTenants()
+	tenants.AddUser(username)
+	fairnessManager.tenantsMonitor.AddUser(username)
+	user := tenants.GetUser(username)
+	user.AddRequest(request)
+	log.Log(log.Custom).Info("Add new request in fair manager", zap.String("user", username), zap.String("applicationID", appID), zap.Int("total reqeust:", user.GetunScheduledRequests().Len()))
+}
+
+func (fairnessManager *FairnessManager) UpdateScheduledRequest(request *objects.AllocationAsk, username string) {
+	fairnessManager.Lock()
+	defer fairnessManager.Unlock()
+	appID, requestResource := parser.ParseRequestInfo(request)
 	user := fairnessManager.GetTenants().GetUser(username)
 	dominantResourceShare, dominantResourceType := user.GetDRS(fairnessManager.clusterResources.Clone())
 	log.Log(log.Custom).Info(fmt.Sprintf("updated application:[appID: %v, username: %v, dominantResourceShare: %v, dominantResourceType: %v]", appID, username, dominantResourceShare, dominantResourceType))
 	user.Allocate(appID, requestResource)
 	fairnessManager.tenantsMonitor.Record(time.Now(), fairnessManager.tenants, fairnessManager.clusterResources.Clone())
 
-	if unScheduledApps := user.GetUnScheduledApps(); unScheduledApps.Len() == 0 {
-		log.Log(log.Custom).Error("Non existed app update", zap.String("app", appID), zap.String("user", username))
+	if unScheduledRequests := user.GetunScheduledRequests(); unScheduledRequests.Len() == 0 {
+		log.Log(log.Custom).Error("Non existed request update", zap.String("appID: ", appID), zap.String("user: ", username))
 	} else {
-		remainingApps := make([]*apps.App, 0)
-		for unScheduledApps.Len() > 0 {
-			app := heap.Pop(unScheduledApps).(*apps.App)
-			id := app.Id
-			if app.AllocationKey != allocationKey {
-				remainingApps = append(remainingApps, app)
+		remainingRequests := make([]*requests.Request, 0)
+		for unScheduledRequests.Len() > 0 {
+			curRequest := heap.Pop(unScheduledRequests).(*requests.Request)
+			id := curRequest.AppID
+			if curRequest.AllocationKey != request.GetAllocationKey() {
+				remainingRequests = append(remainingRequests, curRequest)
 			} else {
-				log.Log(log.Custom).Info("Delete app", zap.String("appid", id), zap.Int("heap", unScheduledApps.Len()))
+				log.Log(log.Custom).Info("Delete request", zap.String("appId", id), zap.Int("remaining request:", unScheduledRequests.Len()))
 			}
 		}
-		for _, element := range remainingApps {
-			heap.Push(unScheduledApps, element)
+		for _, element := range remainingRequests {
+			heap.Push(unScheduledRequests, element)
 		}
 	}
 }
+
+func (fairnessManager *FairnessManager) AddCompletedRequest(appID string, username string) {
+	fairnessManager.Lock()
+	defer fairnessManager.Unlock()
+	// log.Log(log.Custom).Info(fmt.Sprintf("app complete, appId:%v", appID))
+	user := fairnessManager.GetTenants().GetUser(username)
+	user.Release(appID)
+	fairnessManager.tenantsMonitor.Record(time.Now(), fairnessManager.tenants, fairnessManager.clusterResources.Clone())
+}
+
+// process node
 
 func (fairnessManager *FairnessManager) AddNode(nodeID string, capacity *resources.Resource) {
 	fairnessManager.Lock()
@@ -70,14 +96,7 @@ func (fairnessManager *FairnessManager) RemoveNode(nodeID string) {
 	}
 }
 
-func (fairnessManager *FairnessManager) AddCompletedApp(appID string, username string) {
-	fairnessManager.Lock()
-	defer fairnessManager.Unlock()
-	// log.Log(log.Custom).Info(fmt.Sprintf("app complete, appId:%v", appID))
-	user := fairnessManager.GetTenants().GetUser(username)
-	user.Release(appID)
-	fairnessManager.tenantsMonitor.Record(time.Now(), fairnessManager.tenants, fairnessManager.clusterResources.Clone())
-}
+// process excel file
 
 func (fairnessManager *FairnessManager) SaveExcelFile(){
 	fairnessManager.tenantsMonitor.Save()

@@ -108,7 +108,6 @@ func (pc *PartitionContext) initialPartitionFromConfig(conf configs.PartitionCon
 	if len(conf.Queues) == 0 || conf.Queues[0].Name != configs.RootQueue {
 		return fmt.Errorf("partition cannot be created without root queue")
 	}
-	custom.GetFairnessManager().ParseUsersInPartitionConfig(conf)
 	// Setup the queue structure: root first it should be the only queue at this level
 	// Add the rest of the queue structure recursively
 	queueConf := conf.Queues[0]
@@ -1350,7 +1349,7 @@ func (pc *PartitionContext) removeAllocation(release *si.AllocationRelease) ([]*
 			log.Log(log.SchedPartition).Info("removing allocation from node",
 				zap.String("nodeID", alloc.GetNodeID()),
 				zap.String("allocationID", alloc.GetAllocationID()))	
-			custom.GetFairnessManager().AddCompletedApp(alloc.GetApplicationID(), pc.GetApplication(alloc.GetApplicationID()).GetUser().User)
+			custom.GetFairnessManager().AddCompletedRequest(alloc.GetApplicationID(), pc.GetApplication(alloc.GetApplicationID()).GetUser().User)
 			custom.GetLoadBalanceManager().UpdateNodes()
 		}
 		if alloc.IsPreempted() {
@@ -1426,9 +1425,10 @@ func (pc *PartitionContext) addAllocationAsk(siAsk *si.AllocationAsk) error {
 		return fmt.Errorf("failed to find application %s, for allocation ask %s", siAsk.ApplicationID, siAsk.AllocationKey)
 	}
 	// log.Log(log.Custom).Info(fmt.Sprintf("app add allocation ask appid:%v", app.ApplicationID))
-	custom.GetFairnessManager().ParseUserInApp(app, siAsk.AllocationKey)
+	request := objects.NewAllocationAskFromSI(siAsk)
+	custom.GetFairnessManager().ParseRequest(request, app.GetUser().User)
 	// add the allocation asks to the app
-	return app.AddAllocationAsk(objects.NewAllocationAskFromSI(siAsk))
+	return app.AddAllocationAsk(request)
 }
 
 func (pc *PartitionContext) GetCurrentState() string {

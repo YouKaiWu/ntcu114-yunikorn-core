@@ -3,7 +3,7 @@ package fairness
 import (
 	"container/heap"
 	"github.com/apache/yunikorn-core/pkg/common/resources"
-	"github.com/apache/yunikorn-core/pkg/custom/fairness/apps"
+	"github.com/apache/yunikorn-core/pkg/custom/fairness/requests"
 	"github.com/apache/yunikorn-core/pkg/custom/fairness/monitor"
 	"github.com/apache/yunikorn-core/pkg/custom/fairness/users"
 	"sync"
@@ -31,20 +31,22 @@ func (fairnessManager *FairnessManager) GetTenants() *users.Users {
 	return fairnessManager.tenants
 }
 
-func (fairnessManager *FairnessManager) NextAppToSchedule() (appId string, allocationKey string) {
+func (fairnessManager *FairnessManager) NextAppToSchedule() (username string, appId string, allocationKey string) {
 	fairnessManager.Lock()
 	defer fairnessManager.Unlock()
 	tenants := fairnessManager.GetTenants()
-	username := tenants.GetMinDRSUser(fairnessManager.clusterResources.Clone())
+	username = tenants.GetMinDRSUser(fairnessManager.clusterResources.Clone())
 	if username == "" {
-		return "", ""
+		return "", "", ""
 	}
 	user := tenants.GetUser(username)
-	unScheduledApps := user.GetUnScheduledApps()
+	unScheduledApps := user.GetunScheduledRequests()
 	if unScheduledApps.Len() == 0 {
-		return "", ""
+		return username, "", ""
 	}
-	targetApp := heap.Pop(unScheduledApps).(*apps.App)
-	heap.Push(unScheduledApps, targetApp)
-	return targetApp.Id, targetApp.AllocationKey
+	targetRequest := heap.Pop(unScheduledApps).(*requests.Request)
+	heap.Push(unScheduledApps, targetRequest)
+	appId = targetRequest.AppID
+	allocationKey = targetRequest.AllocationKey
+	return 
 }
