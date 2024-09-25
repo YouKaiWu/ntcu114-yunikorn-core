@@ -37,10 +37,10 @@ func (fairnessManager *FairnessManager) UpdateScheduledRequest(request *objects.
 	appID, requestResource := parser.ParseRequestInfo(request)
 	user := fairnessManager.GetTenants().GetUser(username)
 	user.AddWaitTime(request.GetCreateTime())
-	dominantResourceShare, dominantResourceType := user.GetDRS(fairnessManager.clusterResources.Clone())
+	dominantResourceShare, dominantResourceType := user.GetDRS(fairnessManager.GetClusterResources())
 	log.Log(log.Custom).Info(fmt.Sprintf("updated application:[appID: %v, username: %v, dominantResourceShare: %v, dominantResourceType: %v]", appID, username, dominantResourceShare, dominantResourceType))
 	user.Allocate(appID, requestResource)
-	fairnessManager.tenantsMonitor.Record(time.Now(), fairnessManager.tenants, fairnessManager.clusterResources.Clone())
+	fairnessManager.tenantsMonitor.Record(time.Now(), fairnessManager.tenants, fairnessManager.GetClusterResources())
 
 	if unScheduledRequests := user.GetunScheduledRequests(); unScheduledRequests.Len() == 0 {
 		log.Log(log.Custom).Error("Non existed request update", zap.String("appID: ", appID), zap.String("user: ", username))
@@ -67,7 +67,7 @@ func (fairnessManager *FairnessManager) AddCompletedRequest(appID string, userna
 	// log.Log(log.Custom).Info(fmt.Sprintf("app complete, appId:%v", appID))
 	user := fairnessManager.GetTenants().GetUser(username)
 	user.Release(appID)
-	fairnessManager.tenantsMonitor.Record(time.Now(), fairnessManager.tenants, fairnessManager.clusterResources.Clone())
+	fairnessManager.tenantsMonitor.Record(time.Now(), fairnessManager.tenants, fairnessManager.GetClusterResources())
 }
 
 // process node
@@ -75,7 +75,7 @@ func (fairnessManager *FairnessManager) AddCompletedRequest(appID string, userna
 func (fairnessManager *FairnessManager) AddNode(nodeID string, capacity *resources.Resource) {
 	fairnessManager.Lock()
 	defer fairnessManager.Unlock()
-	tmp := fairnessManager.clusterResources.Clone()
+	tmp := fairnessManager.GetClusterResources()
 	if curCapacity, nodeExist := fairnessManager.nodesCapacity[nodeID]; nodeExist {
 		if !resources.StrictlyGreaterThanOrEquals(curCapacity, capacity) {
 			tmp = resources.Sub(tmp, curCapacity)

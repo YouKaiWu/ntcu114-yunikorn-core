@@ -31,11 +31,15 @@ func (fairnessManager *FairnessManager) GetTenants() *users.Users {
 	return fairnessManager.tenants
 }
 
+func (fairnessManager *FairnessManager) GetClusterResources() *resources.Resource {
+	return fairnessManager.clusterResources.Clone()
+}
+
 func (fairnessManager *FairnessManager) NextAppToSchedule() (username string, appId string, allocationKey string) {
 	fairnessManager.Lock()
 	defer fairnessManager.Unlock()
 	tenants := fairnessManager.GetTenants()
-	username = tenants.GetMinDRSUser(fairnessManager.clusterResources.Clone())
+	username = tenants.GetMinEval(fairnessManager.clusterResources.Clone())
 	if username == "" {
 		return "", "", ""
 	}
