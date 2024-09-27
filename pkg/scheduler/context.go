@@ -127,7 +127,7 @@ func (cc *ClusterContext) customSchedule() bool {
 			continue
 		}
 		schedulingStart := time.Now()
-		username, appID, allocationKey := custom.GetFairnessManager().NextAppToSchedule()
+		username, appID, allocationKey := custom.GetFairnessManager().NextRequestToSchedule()
 		if app := psc.getApplication(appID); app != nil {
 			request := app.GetAllocationAsk(allocationKey)
 			var alloc *objects.Allocation

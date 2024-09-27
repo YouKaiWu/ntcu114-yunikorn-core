@@ -35,7 +35,7 @@ func (fairnessManager *FairnessManager) GetClusterResources() *resources.Resourc
 	return fairnessManager.clusterResources.Clone()
 }
 
-func (fairnessManager *FairnessManager) NextAppToSchedule() (username string, appId string, allocationKey string) {
+func (fairnessManager *FairnessManager) NextRequestToSchedule() (username string, appId string, allocationKey string) {
 	fairnessManager.Lock()
 	defer fairnessManager.Unlock()
 	tenants := fairnessManager.GetTenants()
