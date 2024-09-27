@@ -39,7 +39,7 @@ func (fairnessManager *FairnessManager) NextRequestToSchedule() (username string
 	fairnessManager.Lock()
 	defer fairnessManager.Unlock()
 	tenants := fairnessManager.GetTenants()
-	username = tenants.GetMinEval(fairnessManager.clusterResources.Clone())
+	username = tenants.GetMinDRSUser(fairnessManager.clusterResources.Clone())
 	if username == "" {
 		return "", "", ""
 	}
