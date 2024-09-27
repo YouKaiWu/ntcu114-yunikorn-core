@@ -3,149 +3,100 @@ package formula
 import (
 	"github.com/apache/yunikorn-core/pkg/common/resources"
 	"github.com/apache/yunikorn-core/pkg/custom/loadbalance/nodes"
-	// "github.com/apache/yunikorn-core/pkg/log"
-	// "go.uber.org/zap"
-
-	sicommon "github.com/apache/yunikorn-scheduler-interface/lib/go/common"
+	"github.com/apache/yunikorn-core/pkg/scheduler/objects"
 
 	// "fmt"
-	"math"
 )
 
-func TOPSIS(reqestResource *resources.Resource, nodes nodes.Nodes) string {
-	resourceTypes := []string{sicommon.CPU, sicommon.Memory}
-	dominantLoads := make([]float64, 0)
-	nodesIdx := make([]string, 0) // map idx to nodeId
-	for _, node := range nodes {
-		nodesIdx = append(nodesIdx, node.NodeID)
-		availableResource, capacityResource := node.GetAvailableResource(), node.GetCapacity()
-		dominantLoads = append(dominantLoads, getDominantLoad(availableResource, capacityResource, resourceTypes))
+func TOPSIS(req *resources.Resource, nodes nodes.Nodes) string {
+	MIGs := make([]float64, 0)
+	CPUUtilizations := make([]float64, 0)
+	MemoryUtilizations := make([]float64, 0)
+	devs := make([]float64, 0)
+	nodesID := make([]string, 0)
+	for _, targetNode := range nodes {
+		nodeID := targetNode.NodeID
+		nodesID = append(nodesID, nodeID)
+		mig := GetMIG(req, targetNode)
+		usageOfResource := GetUsages(req, nodeID, nodes)
+		dev := GetDev(req, nodeID, nodes)
+		MIGs = append(MIGs, mig)
+		CPUUtilizations = append(CPUUtilizations, usageOfResource[0])
+		MemoryUtilizations = append(MemoryUtilizations, usageOfResource[1])
+		devs = append(devs, dev)
 	}
 
-	means := make([]float64, 0)
-	stdDevs := make([]float64, 0)
+	// Normalize
+	NorCPUs := Normalized(CPUUtilizations)
+	NorMems := Normalized(MemoryUtilizations)
+	NorMIGs := Normalized(MIGs)
+	NorDevs := Normalized(devs)
 
-	for idx, node := range nodes {
-		originalDominantLoad := dominantLoads[idx]
-		availableResource, capacityResource := node.GetAvailableResource(), node.GetCapacity()
-		remainResource := resources.Sub(availableResource, reqestResource)
-		newDominantLoad := getDominantLoad(remainResource, capacityResource, resourceTypes)
-		dominantLoads[idx] = newDominantLoad
-		means = append(means, getMean(dominantLoads))
-		stdDevs = append(stdDevs, getStdDev(dominantLoads, means[idx]))
-		dominantLoads[idx] = originalDominantLoad
+	objectNames := []string{"CPUUtilization", "MemoryUtilization", "MIG", "dev"}
+	weightedCPUs := Weight(NorCPUs, objectNames)
+	weightedMems := Weight(NorMems, objectNames)
+	weightedMIGs := Weight(NorMIGs, objectNames)
+	weightedDevs := Weight(NorDevs, objectNames)
 
-		// log.Log(log.Custom).Info(node.String(), zap.Bool("isSchedulable", node.IsSchedulable()))
-	}
+	// A+ and A-
+	APlustCPU := APlusOfUsages(weightedCPUs)
+	APlustMem := APlusOfUsages(weightedMems)
+	APlusMIG := APlus(weightedMIGs)
+	APlusDevs := APlus(weightedDevs)
 
-	// standardlizationScore
-	scoresOfMeans := make([]float64, 0)
-	scoresOfStdDevs := make([]float64, 0)
+	AMinusCPU := AMinusOfUsages(weightedCPUs)
+	AMinusMem := AMinusOfUsages(weightedMems)
+	AMinusMIG := AMinus(weightedMIGs)
+	AMinusDevs := AMinus(weightedDevs)
 
-	meanOfMeans := getMean(means)
-	stdDevOfMeans := getStdDev(means, meanOfMeans)
-	meanOfStdDevs := getMean(stdDevs)
-	stdDevOfStdDevs := getStdDev(stdDevs, meanOfStdDevs)
-	
-	for idx := range nodes {
-		// log.Log(log.Custom).Info(fmt.Sprintf("cur node : %v", nodesIdx[idx]))
-		// standardlizationScore of mean
-		scoreOfMean := 0.0
-		if stdDevOfMeans != 0{
-			scoreOfMean = getStandardizationScore(means[idx], meanOfMeans, stdDevOfMeans)
-		}
-		scoresOfMeans = append(scoresOfMeans, scoreOfMean)
-		// standardlizationScore of stdDev
-		scoreOfStdDev := 0.0
-		if stdDevOfStdDevs != 0{
-			scoreOfStdDev = getStandardizationScore(stdDevs[idx], meanOfStdDevs, stdDevOfStdDevs)
-		}
-		// log.Log(log.Custom).Info(fmt.Sprintf("scoreOfMean: %v, scoreOfStdDev: %v", scoreOfMean, scoreOfStdDev))
-		scoresOfStdDevs = append(scoresOfStdDevs, scoreOfStdDev)
-	}
+	// SM+ and SM-
+	weighted := [][]float64{weightedCPUs, weightedMems, weightedMIGs, weightedDevs}
+	APlusObjective := []float64{APlustCPU, APlustMem, APlusMIG, APlusDevs}
+	AMinusObjective := []float64{AMinusCPU, AMinusMem, AMinusMIG, AMinusDevs}
+	SMPlusObject := SM(weighted, APlusObjective)
+	SMMinusObject := SM(weighted, AMinusObjective)
 
-	// select solution
-	minMean, minStdDev := getBestSol(scoresOfMeans, scoresOfStdDevs)
-	bestSol := []float64{minMean, minStdDev}
-
-	maxMean, maxStdDev := getWorstSol(scoresOfMeans, scoresOfStdDevs)
-	worstSol := []float64{maxMean, maxStdDev}
-
-	RCVals := make([]float64, 0)
-	
-	for idx := range nodes{
-		curSol := []float64{scoresOfMeans[idx], scoresOfStdDevs[idx]} 
-		distanceOfBest := getEuclideanDistance(curSol, bestSol)
-		distanceOfWorst := getEuclideanDistance(curSol, worstSol)
-		RCVal := getRCVal(distanceOfBest, distanceOfWorst)
-		RCVals = append(RCVals, RCVal)
-	}
-
-	selectedNode := getNodeId(RCVals, nodesIdx);
-	// log.Log(log.Custom).Info(fmt.Sprintf("selectedNode: %v", selectedNode))
-	return selectedNode
+	nodeIndex, _ := IndexOfMaxRC(SMPlusObject, SMMinusObject)
+	return nodesID[nodeIndex]
 }
 
-func getBestSol(meansOfObjects, stdDevsOfObjects []float64) (float64, float64) { //(minMean, minStdDev)
-	var minMean, minStdDev float64
-	minMean = meansOfObjects[0]
-	minStdDev = stdDevsOfObjects[0]
-
-	for i := 1; i < len(meansOfObjects); i++ {
-		if meansOfObjects[i] < minMean {
-			minMean = meansOfObjects[i]
-		}
-	}
-
-	for i := 1; i < len(stdDevsOfObjects); i++ {
-		if stdDevsOfObjects[i] < minStdDev {
-			minStdDev = stdDevsOfObjects[i]
-		}
-	}
-	return minMean, minStdDev
+func GetObjectives(req *resources.Resource, n *objects.Node) (float64, float64) {
+	// mig float64(resources.GetMIGFromNodeUtilization())
+	// usage resources.AverageUsage()
+	return GetMIG(req, n), GetNodeUsage(n)
 }
 
-func getWorstSol(meansOfObjects, stdDevsOfObjects []float64) (float64, float64) { //(maxMean, maxStdDev)
-	var maxMean, maxStdDev float64
-	maxMean = meansOfObjects[0]
-	maxStdDev = stdDevsOfObjects[0]
-
-	for i := 1; i < len(meansOfObjects); i++ {
-		if meansOfObjects[i] > maxMean {
-			maxMean = meansOfObjects[i]
-		}
-	}
-
-	for i := 1; i < len(stdDevsOfObjects); i++ {
-		if stdDevsOfObjects[i] > maxStdDev {
-			maxStdDev = stdDevsOfObjects[i]
-		}
-	}
-	return maxMean, maxStdDev
+func GetNodeUsage(n *objects.Node) float64 {
+	return resources.AverageUsage(n.GetUtilizedResource())
 }
 
-func getEuclideanDistance(x, y []float64) float64 {
-	var distance float64
-	for i := 0; i < len(x); i++ {
-		distance += math.Pow((x[i] - y[i]), 2)
-	}
-	distance = math.Sqrt(distance)
-	return distance
+func GetMIG(req *resources.Resource, n *objects.Node) float64 {
+	change := resources.Sub(n.GetCapacity(), resources.Sub(n.GetAvailableResource(), req))
+	return float64(resources.GetMIGFromNodeUtilization(change))
 }
 
-func getRCVal(DistanceOfBest, DistanceOfWorst float64) float64 {
-	rc := DistanceOfWorst / (DistanceOfBest + DistanceOfWorst)
-	return rc
-}
-
-func getNodeId(RCVals []float64, nodesIdx []string) string{
-	maxRCVal := 0.0 // the worst sol RC val is 0
-	selectedNode := ""
-	for idx, RCVal := range RCVals{
-		if RCVal >= maxRCVal{
-			maxRCVal = RCVal
-			selectedNode = nodesIdx[idx]
+func GetUsages(req *resources.Resource, assignNode string, nodes nodes.Nodes) []float64 {
+	ns := make([]*resources.Resource, 0)
+	for _, n := range nodes {
+		res := n.GetAvailableResource()
+		if n.NodeID == assignNode {
+			res = resources.Sub(res, req)
 		}
+		ns = append(ns, resources.CalculateAbsUsedCapacity(n.GetCapacity(), resources.Sub(n.GetCapacity(), res)))
 	}
-	return selectedNode
+	ave := resources.Average(ns)
+	return resources.GetCPUandMemoryUtilizations(ave)
+}
+
+func GetDev(eq *resources.Resource, assignNode string, nodes nodes.Nodes) float64 {
+	ns := make([]*resources.Resource, 0)
+	for _, n := range nodes {
+		res := n.GetAvailableResource()
+		if n.NodeID == assignNode {
+			res = resources.Sub(res, eq)
+		}
+		ns = append(ns, resources.CalculateAbsUsedCapacity(n.GetCapacity(), resources.Sub(n.GetCapacity(), res)))
+	}
+	ave := resources.Average(ns)
+	return resources.GetDeviationFromNodes(ns, ave)
 }

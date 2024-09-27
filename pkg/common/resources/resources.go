@@ -958,3 +958,102 @@ func (r *Resource) DominantResourceType(capacity *Resource) string {
 	}
 	return dominant
 }
+
+
+func AverageUsage(input *Resource) float64 {
+	resType := []string{common.CPU, common.Memory}
+	result := 0.0
+	for _, resname := range resType {
+		result += float64(int64(input.Resources[resname]))
+	}
+	result /= float64(len(resType))
+	return result
+}
+
+func GetMIGFromNodeUtilization(input *Resource) int64 {
+	return int64(MIG(input.Clone()))
+}
+
+// Sum up the gap betweem Minus
+func MIG(input *Resource) Quantity {
+	// Clone utilization
+	tmp := input.Clone()
+	utilizations := NewResource()
+	for _, key := range []string{common.CPU, common.Memory} {
+		utilizations.Resources[key] = tmp.Resources[key]
+	}
+
+	// Find the min utilization and then calculate the sum of resource utilization gaps
+	minUtilization := Min(utilizations)
+	gaps := Quantity(int64(0))
+	for _, utilization := range utilizations.Resources {
+		gap := subVal(utilization, minUtilization)
+		if int64(gap) > int64(gaps) {
+			gaps = gap
+		}
+	}
+	return gaps
+}
+
+// Find max rquantity type in resources
+func Min(input *Resource) Quantity {
+	var min Quantity
+	assigned := false
+	for _, value := range input.Resources {
+		if !assigned {
+			min = value
+			assigned = true
+		}
+		if min > value {
+			min = value
+		}
+	}
+	return min
+}
+
+func Average(inputs []*Resource) (result *Resource) {
+	resType := []string{common.CPU, common.Memory}
+	result = NewResource()
+	for _, resname := range resType {
+		sum := Quantity(0)
+		for _, r := range inputs {
+			sum = addVal(sum, r.Resources[resname])
+		}
+		average := mulValRatio(sum, float64(1)/float64(len(inputs)))
+		result.Resources[resname] = average
+	}
+	return
+}
+
+func GetCPUandMemoryUtilizations(meanUtilizationsOfClusterResources *Resource) (result []float64) {
+	result = make([]float64, 2)
+	result[0] = float64(int64(meanUtilizationsOfClusterResources.Resources[common.CPU]))
+	result[1] = float64(int64(meanUtilizationsOfClusterResources.Resources[common.Memory]))
+	return
+}
+
+func GetDeviationFromNodes(nodes []*Resource, average *Resource) float64 {
+	resTypes := []string{common.CPU, common.Memory}
+	deviations := map[string]float64{
+		common.CPU:    0.0,
+		common.Memory: 0.0,
+	}
+
+	for _, resType := range resTypes {
+		base := int64(average.Resources[resType])
+		for _, node := range nodes {
+			resOnNode := int64(node.Resources[resType])
+			// log.Logger().Info("deviation sub", zap.Int64("node res", resOnNode), zap.Int64("average", base))
+			tmp := float64(resOnNode) - float64(base)
+			deviations[resType] += math.Pow(tmp, float64(2))
+		}
+		deviations[resType] /= float64(len(nodes))
+		deviations[resType] = math.Sqrt(deviations[resType])
+		// log.Logger().Info("deviation", zap.String("type", resType), zap.Float64("result", deviations[resType]))
+	}
+
+	if deviations[common.CPU] >= deviations[common.Memory] {
+		return deviations[common.CPU]
+	}
+	return deviations[common.Memory]
+}
