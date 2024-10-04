@@ -130,57 +130,91 @@ func (tenantsMonitor *TenantsMonitor) recordDR(timestamp time.Time, tenants *use
 }
 
 
-func (tenantsMonitor *TenantsMonitor) recordWaitTime(tenants *users.Users) { // record wait time
-	cell, err := excelize.CoordinatesToCellName(1, 1)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "username")
-	// save user name 
-	for username, colIdx := range tenantsMonitor.tenantsList {
-		cell, err := excelize.CoordinatesToCellName(colIdx, 1)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, username)
-	}
-	// save user total Wait Time
-	cell, err = excelize.CoordinatesToCellName(1, 2)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "totalWaitTime")
-	for username, colIdx := range tenantsMonitor.tenantsList {
-		user := tenants.GetUser(username)
-		totalWaitTime := user.GetWaitTime()
-		cell, err := excelize.CoordinatesToCellName(colIdx, 2)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, totalWaitTime.Seconds())
-	}
-	// save user average Wait Time
-	cell, err = excelize.CoordinatesToCellName(1, 3)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "averageWaitTime")
-	for username, colIdx := range tenantsMonitor.tenantsList {
-		user := tenants.GetUser(username)
-		totalWaitTime := user.GetWaitTime()
-		cell, err := excelize.CoordinatesToCellName(colIdx, 3)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, totalWaitTime.Seconds() / float64(user.GetCompletedRequestCnt()))
-	}
+func (tenantsMonitor *TenantsMonitor) recordWaitTime(tenants *users.Users) { 
+    cell, err := excelize.CoordinatesToCellName(1, 1)
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
+    tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "username")
+
+    for username, colIdx := range tenantsMonitor.tenantsList {
+        cell, err := excelize.CoordinatesToCellName(colIdx, 1)
+        if err != nil {
+            fmt.Println(err)
+            return
+        }
+        tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, username)
+    }
+
+    
+    cell, err = excelize.CoordinatesToCellName(1, 2)
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
+    tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "totalWaitTime")
+    maxAvgWaitTime := 0.0
+    minAvgWaitTime := float64(1<<31 - 1) 
+    totalJobWaitTime := 0.0
+    for username, colIdx := range tenantsMonitor.tenantsList {
+        user := tenants.GetUser(username)
+        totalWaitTime := user.GetWaitTime().Seconds()
+        cell, err := excelize.CoordinatesToCellName(colIdx, 2)
+        if err != nil {
+            fmt.Println(err)
+            return
+        }
+        tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, totalWaitTime)
+
+        avgWaitTime := totalWaitTime / float64(user.GetCompletedRequestCnt())
+        cell, err = excelize.CoordinatesToCellName(colIdx, 3)
+        if err != nil {
+            fmt.Println(err)
+            return
+        }
+        tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, avgWaitTime)
+
+      
+        if avgWaitTime > maxAvgWaitTime {
+            maxAvgWaitTime = avgWaitTime
+        }
+        if avgWaitTime < minAvgWaitTime {
+            minAvgWaitTime = avgWaitTime
+        }
+
+      
+        totalJobWaitTime += totalWaitTime
+    }
+
+  
+    cell, err = excelize.CoordinatesToCellName(1, 4)
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
+    tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "maxAvgWaitTime")
+    tenantsMonitor.excelFile.SetCellValue("WaitTime", "B4", maxAvgWaitTime)
+
+   
+    cell, err = excelize.CoordinatesToCellName(1, 5)
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
+    tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "maxAvgWaitTime - minAvgWaitTime")
+    tenantsMonitor.excelFile.SetCellValue("WaitTime", "B5", maxAvgWaitTime-minAvgWaitTime)
+
+
+    cell, err = excelize.CoordinatesToCellName(1, 6)
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
+    tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "totalJobWaitTime")
+    tenantsMonitor.excelFile.SetCellValue("WaitTime", "B6", totalJobWaitTime)
 }
+
 
 func (tenantsMonitor *TenantsMonitor) Save(tenants *users.Users) {
 	for sheetName := range tenantsMonitor.sheetIdxes {

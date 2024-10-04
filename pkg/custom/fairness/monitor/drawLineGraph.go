@@ -88,7 +88,7 @@ func (tenantsMonitor *TenantsMonitor) GenerateAvgWaitTimeBarChartSeries() []exce
 }
 
 func (tenantsMonitor *TenantsMonitor) createTotalWaitTimeBarChart(sheetName string) {
-	if err := tenantsMonitor.excelFile.AddChart(sheetName, "A5", &excelize.Chart{
+	if err := tenantsMonitor.excelFile.AddChart(sheetName, "I17", &excelize.Chart{
 		Type:   excelize.Col, 
 		Series: tenantsMonitor.GenerateTotalWaitTimeBarChartSeries(),
 		Title: []excelize.RichTextRun{
