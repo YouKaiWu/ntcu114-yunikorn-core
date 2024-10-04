@@ -72,7 +72,7 @@ func (users *Users) GetMinEval(clusterResource *resources.Resource) string {
 	for username, user := range users.users {
 		DRS, DRType := user.GetDRS(clusterResource)
 		DDRS, _ := user.GetDDRS(clusterResource)
-		eval := 0.8 * DRS - 0.2 * DDRS
+		eval := 0.9 * DRS - 0.1 * DDRS
 		userInfo := NewUserInfo(username, eval, DRType)
 		heap.Push(usersHeap, userInfo)
 	}
