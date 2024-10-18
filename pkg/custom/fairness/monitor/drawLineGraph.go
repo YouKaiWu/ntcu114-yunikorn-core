@@ -13,8 +13,8 @@ func (tenantsMonitor *TenantsMonitor) GenerateLineChartSeries(sheetName string) 
 	for _, colIdx := range tenantsMonitor.tenantsList {
 		series = append(series, excelize.ChartSeries{
 			Name:       fmt.Sprintf(sheetName+"!$%s$1", colToLetter(colIdx)),                                                       // Name of the tenant
-			Categories: fmt.Sprintf(sheetName+"!$A$2:$A$%d", tenantsMonitor.currRow-1),                                             // Time range (X-axis)
-			Values:     fmt.Sprintf(sheetName+"!$%s$2:$%s$%d", colToLetter(colIdx), colToLetter(colIdx), tenantsMonitor.currRow-1), // Tenant data range (Y-axis)
+			Categories: fmt.Sprintf(sheetName+"!$A$2:$A$%d", tenantsMonitor.allocateCnt),                                             // Time range (X-axis)
+			Values:     fmt.Sprintf(sheetName+"!$%s$2:$%s$%d", colToLetter(colIdx), colToLetter(colIdx), tenantsMonitor.allocateCnt), // Tenant data range (Y-axis)
 		})
 	}
 	return series
@@ -37,14 +37,14 @@ func (tenantsMonitor *TenantsMonitor) createLineChart(sheetName string) {
 		Series: tenantsMonitor.GenerateLineChartSeries(sheetName),
 		Title: []excelize.RichTextRun{
 			{
-				Text: "User " + sheetName + " Usage Over Time",
+				Text: "User " + sheetName + " Usage Over Allocation",
 			},
 		},
 		XAxis: excelize.ChartAxis{
 			MajorGridLines: true,
 			Title: []excelize.RichTextRun{
 				{
-					Text: "Time",
+					Text: "Allocation Count",
 				},
 			},
 		},
@@ -53,6 +53,49 @@ func (tenantsMonitor *TenantsMonitor) createLineChart(sheetName string) {
 			Title: []excelize.RichTextRun{
 				{
 					Text: sheetName + " Usage",
+				},
+			},
+		},
+		Dimension: excelize.ChartDimension{Width: 800, Height: 600},  
+	}); err != nil {
+		log.Log(log.Custom).Info("create graph error occur")
+		return
+	}
+}
+
+func (tenantsMonitor *TenantsMonitor) GenerateLineChartSeriesOfScheduleInterval(sheetName string) []excelize.ChartSeries {
+	return []excelize.ChartSeries{
+		{
+			Name:       sheetName + "!$B$1",                                                    
+			Categories: fmt.Sprintf(sheetName+"!$A$2:$A$%d", tenantsMonitor.scheduleCnt-1),    
+			Values:     fmt.Sprintf(sheetName+"!$B$2:$B$%d", tenantsMonitor.scheduleCnt-1),    
+		},
+	}
+}
+
+
+func (tenantsMonitor *TenantsMonitor) createLineChartOfScheduleInterval(sheetName string) {
+	if err := tenantsMonitor.excelFile.AddChart(sheetName, "I3", &excelize.Chart{
+		Type:   excelize.Line,
+		Series: tenantsMonitor.GenerateLineChartSeriesOfScheduleInterval(sheetName),
+		Title: []excelize.RichTextRun{
+			{
+				Text: "request waiting time during schedule interval",
+			},
+		},
+		XAxis: excelize.ChartAxis{
+			MajorGridLines: true,
+			Title: []excelize.RichTextRun{
+				{
+					Text: "Schedule Count",
+				},
+			},
+		},
+		YAxis: excelize.ChartAxis{
+			MajorGridLines: true,
+			Title: []excelize.RichTextRun{
+				{
+					Text: "Cost Time",
 				},
 			},
 		},

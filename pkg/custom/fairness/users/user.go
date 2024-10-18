@@ -20,6 +20,7 @@ type User struct{
 	completedRequestCnt int
 	unScheduledRequests *requests.Requests 
 	currConsumeResource *resources.Resource
+	CurrAllocatedCnt int
 	waitResource *resources.Resource
 	appsRequestResource map[string]*resources.Resource
 	sync.RWMutex
@@ -30,6 +31,7 @@ func NewUser() *User{
 		completedRequestCnt: 0,
 		unScheduledRequests: requests.NewRequests(),
 		currConsumeResource: resources.NewResource(),
+		CurrAllocatedCnt: 0,
 		waitResource: resources.NewResource(),
 		appsRequestResource: make(map[string]*resources.Resource, 0),
 	}
@@ -124,6 +126,7 @@ func (user *User) Allocate(appID string, requestResource *resources.Resource){
 	}
 	user.waitResource.SubFrom(requestResource)
 	user.currConsumeResource.AddTo(requestResource)
+	user.CurrAllocatedCnt++
 }
 
 func (user *User) Release(appID string){
@@ -132,4 +135,5 @@ func (user *User) Release(appID string){
 	log.Log(log.Custom).Info(fmt.Sprintf("request release, appID:%v", appID))
 	user.completedRequestCnt++
 	user.currConsumeResource.SubFrom(user.appsRequestResource[appID])
+	user.CurrAllocatedCnt--
 }

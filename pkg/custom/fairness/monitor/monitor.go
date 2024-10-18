@@ -14,7 +14,8 @@ type TenantsMonitor struct {
 	tenantsList      map[string]int // key: user; val: excel col
 	numbersOfTenants int
 	excelFile        *excelize.File
-	currRow          int
+	allocateCnt          int
+	scheduleCnt      int
 	sheetIdxes       map[string]int // key: sheet name; val: sheet index
 }
 
@@ -23,13 +24,16 @@ func NewTenantsMonitor() *TenantsMonitor {
 		tenantsList:      make(map[string]int, 0),
 		numbersOfTenants: 0,
 		excelFile:        excelize.NewFile(),
-		currRow:          2, // rowIdx is 1-indexed, username belongs to row 1, so we started from 2
+		allocateCnt:          1, // rowIdx is 1-indexed, username belongs to row 1, so we started from 2
+		scheduleCnt:      1,
 		sheetIdxes:       make(map[string]int, 0),
 	}
 	tmp.sheetIdxes["CPU"], _ = tmp.excelFile.NewSheet("CPU")
 	tmp.sheetIdxes["Memory"], _ = tmp.excelFile.NewSheet("Memory")
 	tmp.sheetIdxes["DR"], _ = tmp.excelFile.NewSheet("DR")
 	tmp.sheetIdxes["WaitTime"], _ = tmp.excelFile.NewSheet("WaitTime")
+	tmp.sheetIdxes["ScheduleInterval"], _ = tmp.excelFile.NewSheet("ScheduleInterval")
+	tmp.sheetIdxes["AllocatedCnt"], _ = tmp.excelFile.NewSheet("AllocatedCnt")
 	tmp.excelFile.SetActiveSheet(tmp.sheetIdxes["DR"])
 	// 删除預設的 Sheet1
 	if err := tmp.excelFile.DeleteSheet("Sheet1"); err != nil {
@@ -62,25 +66,25 @@ func (tenantsMonitor *TenantsMonitor) AddUser(username string) {
 	}
 }
 
-func (tenantsMonitor *TenantsMonitor) Record(timestamp time.Time, tenants *users.Users, clusterResources *resources.Resource) { // record one row
-	tenantsMonitor.recordCPU(timestamp, tenants, clusterResources)
-	tenantsMonitor.recordMemory(timestamp, tenants, clusterResources)
-	tenantsMonitor.recordDR(timestamp, tenants, clusterResources)
-	tenantsMonitor.currRow++
+func (tenantsMonitor *TenantsMonitor) Record(tenants *users.Users, clusterResources *resources.Resource) { // record one row
+	tenantsMonitor.recordCPU(tenants, clusterResources)
+	tenantsMonitor.recordMemory(tenants, clusterResources)
+	tenantsMonitor.recordDR(tenants, clusterResources)
+	tenantsMonitor.recordAllocatedRequest(tenants)
+	tenantsMonitor.allocateCnt++
 }
 
-func (tenantsMonitor *TenantsMonitor) recordCPU(timestamp time.Time, tenants *users.Users, clusterResources *resources.Resource) { // record one row about CPU usage
-	formattedTime := timestamp.Format("2006-01-02 15:04:05")
-	cell, err := excelize.CoordinatesToCellName(1, tenantsMonitor.currRow)
+func (tenantsMonitor *TenantsMonitor) recordCPU(tenants *users.Users, clusterResources *resources.Resource) { // record one row about CPU usage
+	cell, err := excelize.CoordinatesToCellName(1, tenantsMonitor.allocateCnt+1)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	tenantsMonitor.excelFile.SetCellValue("CPU", cell, formattedTime)
+	tenantsMonitor.excelFile.SetCellValue("CPU", cell, tenantsMonitor.allocateCnt)
 	for username, colIdx := range tenantsMonitor.tenantsList {
 		user := tenants.GetUser(username)
 		CPUUsage := user.GetCPUUsage(clusterResources)
-		cell, err := excelize.CoordinatesToCellName(colIdx, tenantsMonitor.currRow)
+		cell, err := excelize.CoordinatesToCellName(colIdx, tenantsMonitor.allocateCnt+1)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -89,18 +93,18 @@ func (tenantsMonitor *TenantsMonitor) recordCPU(timestamp time.Time, tenants *us
 	}
 }
 
-func (tenantsMonitor *TenantsMonitor) recordMemory(timestamp time.Time, tenants *users.Users, clusterResources *resources.Resource) { // record one row about Memory usage
-	formattedTime := timestamp.Format("2006-01-02 15:04:05")
-	cell, err := excelize.CoordinatesToCellName(1, tenantsMonitor.currRow)
+func (tenantsMonitor *TenantsMonitor) recordMemory(tenants *users.Users, clusterResources *resources.Resource) { // record one row about Memory usage
+	
+	cell, err := excelize.CoordinatesToCellName(1, tenantsMonitor.allocateCnt+1)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	tenantsMonitor.excelFile.SetCellValue("Memory", cell, formattedTime)
+	tenantsMonitor.excelFile.SetCellValue("Memory", cell, tenantsMonitor.allocateCnt)
 	for username, colIdx := range tenantsMonitor.tenantsList {
 		user := tenants.GetUser(username)
 		memoryUsage := user.GetMemoryUsage(clusterResources)
-		cell, err := excelize.CoordinatesToCellName(colIdx, tenantsMonitor.currRow)
+		cell, err := excelize.CoordinatesToCellName(colIdx, tenantsMonitor.allocateCnt+1)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -109,18 +113,18 @@ func (tenantsMonitor *TenantsMonitor) recordMemory(timestamp time.Time, tenants 
 	}
 }
 
-func (tenantsMonitor *TenantsMonitor) recordDR(timestamp time.Time, tenants *users.Users, clusterResources *resources.Resource) { // record one row about Dominant Resource usage
-	formattedTime := timestamp.Format("2006-01-02 15:04:05")
-	cell, err := excelize.CoordinatesToCellName(1, tenantsMonitor.currRow)
+func (tenantsMonitor *TenantsMonitor) recordDR(tenants *users.Users, clusterResources *resources.Resource) { // record one row about Dominant Resource usage
+	
+	cell, err := excelize.CoordinatesToCellName(1, tenantsMonitor.allocateCnt+1)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	tenantsMonitor.excelFile.SetCellValue("DR", cell, formattedTime)
+	tenantsMonitor.excelFile.SetCellValue("DR", cell, tenantsMonitor.allocateCnt)
 	for username, colIdx := range tenantsMonitor.tenantsList {
 		user := tenants.GetUser(username)
 		dominantResource, _ := user.GetDRS(clusterResources)
-		cell, err := excelize.CoordinatesToCellName(colIdx, tenantsMonitor.currRow)
+		cell, err := excelize.CoordinatesToCellName(colIdx, tenantsMonitor.allocateCnt+1)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -129,100 +133,141 @@ func (tenantsMonitor *TenantsMonitor) recordDR(timestamp time.Time, tenants *use
 	}
 }
 
+func (tenantsMonitor *TenantsMonitor) recordWaitTime(tenants *users.Users) {
+	cell, err := excelize.CoordinatesToCellName(1, 1)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "username")
 
-func (tenantsMonitor *TenantsMonitor) recordWaitTime(tenants *users.Users) { 
-    cell, err := excelize.CoordinatesToCellName(1, 1)
-    if err != nil {
-        fmt.Println(err)
-        return
-    }
-    tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "username")
+	for username, colIdx := range tenantsMonitor.tenantsList {
+		cell, err := excelize.CoordinatesToCellName(colIdx, 1)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, username)
+	}
 
-    for username, colIdx := range tenantsMonitor.tenantsList {
-        cell, err := excelize.CoordinatesToCellName(colIdx, 1)
-        if err != nil {
-            fmt.Println(err)
-            return
-        }
-        tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, username)
-    }
+	cell, err = excelize.CoordinatesToCellName(1, 2)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "totalWaitTime")
+	maxAvgWaitTime := 0.0
+	minAvgWaitTime := float64(1<<31 - 1)
+	totalJobWaitTime := 0.0
+	for username, colIdx := range tenantsMonitor.tenantsList {
+		user := tenants.GetUser(username)
+		totalWaitTime := user.GetWaitTime().Seconds()
+		cell, err := excelize.CoordinatesToCellName(colIdx, 2)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, totalWaitTime)
 
-    
-    cell, err = excelize.CoordinatesToCellName(1, 2)
-    if err != nil {
-        fmt.Println(err)
-        return
-    }
-    tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "totalWaitTime")
-    maxAvgWaitTime := 0.0
-    minAvgWaitTime := float64(1<<31 - 1) 
-    totalJobWaitTime := 0.0
-    for username, colIdx := range tenantsMonitor.tenantsList {
-        user := tenants.GetUser(username)
-        totalWaitTime := user.GetWaitTime().Seconds()
-        cell, err := excelize.CoordinatesToCellName(colIdx, 2)
-        if err != nil {
-            fmt.Println(err)
-            return
-        }
-        tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, totalWaitTime)
+		avgWaitTime := totalWaitTime / float64(user.GetCompletedRequestCnt())
+		cell, err = excelize.CoordinatesToCellName(colIdx, 3)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, avgWaitTime)
 
-        avgWaitTime := totalWaitTime / float64(user.GetCompletedRequestCnt())
-        cell, err = excelize.CoordinatesToCellName(colIdx, 3)
-        if err != nil {
-            fmt.Println(err)
-            return
-        }
-        tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, avgWaitTime)
+		if avgWaitTime > maxAvgWaitTime {
+			maxAvgWaitTime = avgWaitTime
+		}
+		if avgWaitTime < minAvgWaitTime {
+			minAvgWaitTime = avgWaitTime
+		}
 
-      
-        if avgWaitTime > maxAvgWaitTime {
-            maxAvgWaitTime = avgWaitTime
-        }
-        if avgWaitTime < minAvgWaitTime {
-            minAvgWaitTime = avgWaitTime
-        }
+		totalJobWaitTime += totalWaitTime
+	}
 
-      
-        totalJobWaitTime += totalWaitTime
-    }
+	cell, err = excelize.CoordinatesToCellName(1, 4)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "maxAvgWaitTime")
+	tenantsMonitor.excelFile.SetCellValue("WaitTime", "B4", maxAvgWaitTime)
 
-  
-    cell, err = excelize.CoordinatesToCellName(1, 4)
-    if err != nil {
-        fmt.Println(err)
-        return
-    }
-    tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "maxAvgWaitTime")
-    tenantsMonitor.excelFile.SetCellValue("WaitTime", "B4", maxAvgWaitTime)
+	cell, err = excelize.CoordinatesToCellName(1, 5)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "maxAvgWaitTime - minAvgWaitTime")
+	tenantsMonitor.excelFile.SetCellValue("WaitTime", "B5", maxAvgWaitTime-minAvgWaitTime)
 
-   
-    cell, err = excelize.CoordinatesToCellName(1, 5)
-    if err != nil {
-        fmt.Println(err)
-        return
-    }
-    tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "maxAvgWaitTime - minAvgWaitTime")
-    tenantsMonitor.excelFile.SetCellValue("WaitTime", "B5", maxAvgWaitTime-minAvgWaitTime)
-
-
-    cell, err = excelize.CoordinatesToCellName(1, 6)
-    if err != nil {
-        fmt.Println(err)
-        return
-    }
-    tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "totalJobWaitTime")
-    tenantsMonitor.excelFile.SetCellValue("WaitTime", "B6", totalJobWaitTime)
+	cell, err = excelize.CoordinatesToCellName(1, 6)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	tenantsMonitor.excelFile.SetCellValue("WaitTime", cell, "totalJobWaitTime")
+	tenantsMonitor.excelFile.SetCellValue("WaitTime", "B6", totalJobWaitTime)
 }
 
+func (tenantsMonitor *TenantsMonitor) recordAllocatedRequest(tenants *users.Users) { // record one row about users' requests allocated count
+	
+	cell, err := excelize.CoordinatesToCellName(1, tenantsMonitor.allocateCnt+1)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	tenantsMonitor.excelFile.SetCellValue("AllocatedCnt", cell, tenantsMonitor.allocateCnt)
+	for username, colIdx := range tenantsMonitor.tenantsList {
+		user := tenants.GetUser(username)
+		allocatedCnt := user.CurrAllocatedCnt
+		cell, err := excelize.CoordinatesToCellName(colIdx, tenantsMonitor.allocateCnt+1)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		tenantsMonitor.excelFile.SetCellValue("AllocatedCnt", cell, allocatedCnt)
+	}
+}
+
+func (tenantsMonitor *TenantsMonitor) RecordScheduleInterval(tenants *users.Users, scheduledApp string) { // record pending interval between two schedule
+	cell, err := excelize.CoordinatesToCellName(1, tenantsMonitor.scheduleCnt+1)
+	if err != nil {
+		log.Log(log.Custom).Info(fmt.Sprintf("record data err:%v", err))
+		return
+	}
+	tenantsMonitor.excelFile.SetCellValue("ScheduleInterval", cell, tenantsMonitor.scheduleCnt)
+	cell, err = excelize.CoordinatesToCellName(2, tenantsMonitor.scheduleCnt+1)
+	if err != nil {
+		log.Log(log.Custom).Info(fmt.Sprintf("record data err:%v", err))
+		return
+	}
+	curTime := time.Now()
+	timeInterval := curTime.Sub(tenants.LastScheduleTime)
+	if tenants.LastScheduleTime.IsZero(){
+		timeInterval = 0
+	}
+	tenants.LastScheduleTime = curTime
+	tenantsMonitor.excelFile.SetCellValue("ScheduleInterval", cell, timeInterval.Seconds())
+	cell, err = excelize.CoordinatesToCellName(3, tenantsMonitor.scheduleCnt+1)
+	if err != nil {
+		log.Log(log.Custom).Info(fmt.Sprintf("record data err:%v", err))
+		return
+	}
+	tenantsMonitor.excelFile.SetCellValue("ScheduleInterval", cell, scheduledApp)
+	tenantsMonitor.scheduleCnt++
+}
 
 func (tenantsMonitor *TenantsMonitor) Save(tenants *users.Users) {
 	for sheetName := range tenantsMonitor.sheetIdxes {
-		if sheetName != "WaitTime"{
+		if sheetName != "WaitTime" && sheetName != "ScheduleInterval" {
 			tenantsMonitor.saveNameRow(sheetName)
 			tenantsMonitor.createLineChart(sheetName)
 		}
 	}
+	tenantsMonitor.createLineChartOfScheduleInterval("ScheduleInterval")
 	tenantsMonitor.recordWaitTime(tenants)
 	tenantsMonitor.createTotalWaitTimeBarChart("WaitTime")
 	tenantsMonitor.createAvgWaitTimeBarChart("WaitTime")

@@ -11,7 +11,7 @@ import (
 
 	// "fmt"
 	"container/heap"
-	"time"
+	// "time"
 
 	"go.uber.org/zap"
 )
@@ -40,8 +40,8 @@ func (fairnessManager *FairnessManager) UpdateScheduledRequest(request *objects.
 	dominantResourceShare, dominantResourceType := user.GetDRS(fairnessManager.GetClusterResources())
 	log.Log(log.Custom).Info(fmt.Sprintf("updated application:[appID: %v, username: %v, dominantResourceShare: %v, dominantResourceType: %v]", appID, username, dominantResourceShare, dominantResourceType))
 	user.Allocate(appID, requestResource)
-	fairnessManager.tenantsMonitor.Record(time.Now(), fairnessManager.tenants, fairnessManager.GetClusterResources())
-
+	fairnessManager.tenantsMonitor.Record(fairnessManager.tenants, fairnessManager.GetClusterResources())
+	fairnessManager.tenantsMonitor.RecordScheduleInterval(fairnessManager.tenants, appID)
 	if unScheduledRequests := user.GetunScheduledRequests(); unScheduledRequests.Len() == 0 {
 		log.Log(log.Custom).Error("Non existed request update", zap.String("appID: ", appID), zap.String("user: ", username))
 	} else {
@@ -67,7 +67,7 @@ func (fairnessManager *FairnessManager) AddCompletedRequest(appID string, userna
 	// log.Log(log.Custom).Info(fmt.Sprintf("app complete, appId:%v", appID))
 	user := fairnessManager.GetTenants().GetUser(username)
 	user.Release(appID)
-	fairnessManager.tenantsMonitor.Record(time.Now(), fairnessManager.tenants, fairnessManager.GetClusterResources())
+	fairnessManager.tenantsMonitor.Record(fairnessManager.tenants, fairnessManager.GetClusterResources())
 }
 
 // process node

@@ -7,10 +7,12 @@ import (
 	"container/heap"
 	// "fmt"
 	"sync"
+	"time"
 )
 
 type Users struct {
 	users map[string]*User
+	LastScheduleTime time.Time
 	sync.RWMutex
 }
 
