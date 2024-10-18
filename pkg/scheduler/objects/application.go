@@ -949,6 +949,8 @@ func (sa *Application) TrySelectedNode(allocationKey string, selectedNode string
 	if sa.canReplace(request) {
 		return nil
 	}
+	request.SetSchedulingAttempted(true)
+	request.setHeadroomCheckPassed(sa.queuePath)
 	// does request have any constraint to run on specific node?
 	if selectedNode != "" {
 		// the iterator might not have the node we need as it could be reserved, or we have not added it yet
