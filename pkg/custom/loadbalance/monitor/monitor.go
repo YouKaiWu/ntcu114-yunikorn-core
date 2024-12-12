@@ -18,6 +18,8 @@ type NodesMonitor struct {
 	excelFile      *excelize.File
 	currRow        int
 	sheetIdxes     map[string]int // key: sheet name; val: sheet index
+	startTime  	   time.Time
+	first 		   bool
 }
 
 func NewNodesMonitor() *NodesMonitor {
@@ -27,6 +29,8 @@ func NewNodesMonitor() *NodesMonitor {
 		excelFile:      excelize.NewFile(),
 		currRow:        2, // rowIdx is 1-indexed, username belongs to row 1, so we started from 2
 		sheetIdxes:     make(map[string]int, 0),
+		startTime: time.Now(),
+		first : false,
 	}
 	tmp.sheetIdxes["CPU"], _ = tmp.excelFile.NewSheet("CPU")
 	tmp.sheetIdxes["Memory"], _ = tmp.excelFile.NewSheet("Memory")
@@ -64,21 +68,25 @@ func (nodesMonitor *NodesMonitor) AddNode(nodeID string) {
 	}
 }
 
-func (nodesMonitor *NodesMonitor) Record(timestamp time.Time, nodes *nodes.Nodes) { // record one row of various usage
-	nodesMonitor.recordCPU(timestamp, nodes)
-	nodesMonitor.recordMemory(timestamp, nodes)
-	nodesMonitor.recordDL(timestamp, nodes)
-	nodesMonitor.recordGap(timestamp, nodes)
+func (nodesMonitor *NodesMonitor) Record(recordTime time.Time, nodes *nodes.Nodes) { // record one row of various usage
+	if !nodesMonitor.first{
+		nodesMonitor.startTime = recordTime
+		nodesMonitor.first = true
+	}
+	nodesMonitor.recordCPU(recordTime, nodes)
+	nodesMonitor.recordMemory(recordTime, nodes)
+	nodesMonitor.recordDL(recordTime, nodes)
+	nodesMonitor.recordGap(recordTime, nodes)
 	nodesMonitor.currRow++
 }
-func (nodesMonitor *NodesMonitor) recordCPU(timestamp time.Time, nodes *nodes.Nodes) { // record one row about cpu usage of nodes
-	formattedTime := timestamp.Format("2006-01-02 15:04:05")
+func (nodesMonitor *NodesMonitor) recordCPU(recordTime time.Time, nodes *nodes.Nodes) { // record one row about cpu usage of nodes
 	cell, err := excelize.CoordinatesToCellName(1, nodesMonitor.currRow)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	nodesMonitor.excelFile.SetCellValue("CPU", cell, formattedTime)
+	scheduleTime := recordTime.Sub(nodesMonitor.startTime).Seconds()
+	nodesMonitor.excelFile.SetCellValue("CPU", cell, scheduleTime)
 	for _, node := range *nodes {
 		colIdx := nodesMonitor.nodesList[node.NodeID]
 		cell, err := excelize.CoordinatesToCellName(colIdx, nodesMonitor.currRow)
@@ -92,14 +100,14 @@ func (nodesMonitor *NodesMonitor) recordCPU(timestamp time.Time, nodes *nodes.No
 	}
 }
 
-func (nodesMonitor *NodesMonitor) recordMemory(timestamp time.Time, nodes *nodes.Nodes) { // record one row about memory usage of nodes
-	formattedTime := timestamp.Format("2006-01-02 15:04:05")
+func (nodesMonitor *NodesMonitor) recordMemory(recordTime time.Time, nodes *nodes.Nodes) { // record one row about memory usage of nodes
 	cell, err := excelize.CoordinatesToCellName(1, nodesMonitor.currRow)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	nodesMonitor.excelFile.SetCellValue("Memory", cell, formattedTime)
+	scheduleTime := recordTime.Sub(nodesMonitor.startTime).Seconds()
+	nodesMonitor.excelFile.SetCellValue("Memory", cell, scheduleTime)
 	for _, node := range *nodes {
 		colIdx := nodesMonitor.nodesList[node.NodeID]
 		cell, err := excelize.CoordinatesToCellName(colIdx, nodesMonitor.currRow)
@@ -113,14 +121,14 @@ func (nodesMonitor *NodesMonitor) recordMemory(timestamp time.Time, nodes *nodes
 	}
 }
 
-func (nodesMonitor *NodesMonitor) recordDL(timestamp time.Time, nodes *nodes.Nodes) { // record one row about Dominant Load(most stressed resource) usage of nodes
-	formattedTime := timestamp.Format("2006-01-02 15:04:05")
+func (nodesMonitor *NodesMonitor) recordDL(recordTime time.Time, nodes *nodes.Nodes) { // record one row about Dominant Load(most stressed resource) usage of nodes
 	cell, err := excelize.CoordinatesToCellName(1, nodesMonitor.currRow)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	nodesMonitor.excelFile.SetCellValue("DL", cell, formattedTime)
+	scheduleTime := recordTime.Sub(nodesMonitor.startTime).Seconds()
+	nodesMonitor.excelFile.SetCellValue("DL", cell, scheduleTime)
 	for _, node := range *nodes {
 		colIdx := nodesMonitor.nodesList[node.NodeID]
 		cell, err := excelize.CoordinatesToCellName(colIdx, nodesMonitor.currRow)
@@ -136,14 +144,14 @@ func (nodesMonitor *NodesMonitor) recordDL(timestamp time.Time, nodes *nodes.Nod
 	}
 }
 
-func (nodesMonitor *NodesMonitor) recordGap(timestamp time.Time, nodes *nodes.Nodes) { // record one row about gap between cpu usage and memory of nodes
-	formattedTime := timestamp.Format("2006-01-02 15:04:05")
+func (nodesMonitor *NodesMonitor) recordGap(recordTime time.Time, nodes *nodes.Nodes) { // record one row about gap between cpu usage and memory of nodes
 	cell, err := excelize.CoordinatesToCellName(1, nodesMonitor.currRow)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	nodesMonitor.excelFile.SetCellValue("Gap", cell, formattedTime)
+	scheduleTime := recordTime.Sub(nodesMonitor.startTime).Seconds()
+	nodesMonitor.excelFile.SetCellValue("Gap", cell, scheduleTime)
 	for _, node := range *nodes {
 		colIdx := nodesMonitor.nodesList[node.NodeID]
 		cell, err := excelize.CoordinatesToCellName(colIdx, nodesMonitor.currRow)
